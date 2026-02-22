@@ -19,12 +19,10 @@ from waldoctl.tools import (
     MeshAnimation,
     PneumaticGripperTool,
     RotationAnimation,
-    RotationAnimationData,
     ToolSpec,
     ToolsSpec,
     ToolType,
     TranslationAnimation,
-    TranslationAnimationData,
 )
 
 __all__ = [
@@ -55,10 +53,8 @@ __all__ = [
     "ElectricGripperTool",
     "PneumaticGripperTool",
     "ToolsSpec",
-    # Animations (ABCs + concrete implementations)
+    # Animations (frozen dataclasses + type alias)
     "MeshAnimation",
     "TranslationAnimation",
     "RotationAnimation",
-    "TranslationAnimationData",
-    "RotationAnimationData",
 ]

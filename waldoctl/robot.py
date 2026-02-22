@@ -214,8 +214,13 @@ class Robot(ABC):
     # -- Factories ----------------------------------------------------------
 
     @abstractmethod
-    def create_client(self, **kwargs: Any) -> RobotClient:
+    def create_async_client(self, **kwargs: Any) -> RobotClient:
         """Create an async client connected to this backend."""
+        ...
+
+    @abstractmethod
+    def create_sync_client(self, **kwargs: Any) -> object:
+        """Create a synchronous client. Returns backend-specific type."""
         ...
 
     def create_dry_run_client(self, **kwargs: Any) -> DryRunClient | None:

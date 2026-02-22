@@ -47,8 +47,9 @@ class StatusBuffer(Protocol):
 class PingResult:
     """Result of a connectivity check."""
 
-    serial_connected: bool
-    """Whether the controller has a live serial link to the robot."""
+    hardware_connected: bool
+    """Whether the controller has a live link to robot hardware
+    (serial, socket, CAN, PLC, etc.)."""
 
 
 @dataclass

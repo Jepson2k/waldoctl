@@ -1,9 +1,14 @@
-"""Tool / animation hierarchy — Enums, ABCs, and concrete implementations."""
+"""Tool / animation hierarchy — Enums, ABCs, and frozen dataclasses."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from waldoctl.client import RobotClient
 
 
 class ToolType(Enum):
@@ -23,181 +28,48 @@ class GripperType(Enum):
 
 
 # ---------------------------------------------------------------------------
-# Animation hierarchy
+# Animation descriptors — plain frozen dataclasses
 # ---------------------------------------------------------------------------
 
 
-class MeshAnimation(ABC):
-    """Base for all tool part animations.
-
-    Each animation describes how a single role group of STL meshes moves
-    in response to a robot state field.
-    """
-
-    @property
-    @abstractmethod
-    def role(self) -> str:
-        """Matches ``stl_files[i]["role"]`` to select which meshes move."""
-        ...
-
-    @property
-    @abstractmethod
-    def axis(self) -> tuple[float, float, float]:
-        """Unit vector along which the motion occurs."""
-        ...
-
-    @property
-    def symmetric(self) -> bool:
-        """If True, paired parts (left/right) move in opposite directions."""
-        return True
-
-    @property
-    def state_source(self) -> str:
-        """Name of the ``robot_state`` field that drives this animation."""
-        return "grip_pos"
-
-    @property
-    def state_range(self) -> tuple[float, float]:
-        """``(min, max)`` of the state value for normalization to 0..1."""
-        return (0.0, 1000.0)
-
-
-class TranslationAnimation(MeshAnimation):
+@dataclass(frozen=True)
+class TranslationAnimation:
     """Linear motion of tool parts (gripper jaws, press-fit rams)."""
 
-    @property
-    @abstractmethod
-    def travel_m(self) -> float:
-        """Max displacement per side in meters."""
-        ...
+    role: str
+    """Matches ``stl_files[i]["role"]`` to select which meshes move."""
+    axis: tuple[float, float, float]
+    """Unit vector along which the motion occurs."""
+    travel_m: float
+    """Max displacement per side in meters."""
+    symmetric: bool = True
+    """If True, paired parts (left/right) move in opposite directions."""
+    state_source: str = "grip_pos"
+    """Name of the ``robot_state`` field that drives this animation."""
+    state_range: tuple[float, float] = (0.0, 1000.0)
+    """``(min, max)`` of the state value for normalization to 0..1."""
 
 
-class RotationAnimation(MeshAnimation):
+@dataclass(frozen=True)
+class RotationAnimation:
     """Rotary motion of tool parts (spindle bits, drill chucks)."""
 
-    @property
-    @abstractmethod
-    def travel_rad(self) -> float:
-        """Max rotation in radians."""
-        ...
+    role: str
+    """Matches ``stl_files[i]["role"]`` to select which meshes move."""
+    axis: tuple[float, float, float]
+    """Unit vector for the rotation axis."""
+    travel_rad: float
+    """Max rotation in radians."""
+    symmetric: bool = True
+    """If True, paired parts rotate in opposite directions."""
+    state_source: str = "grip_pos"
+    """Name of the ``robot_state`` field that drives this animation."""
+    state_range: tuple[float, float] = (0.0, 1000.0)
+    """``(min, max)`` of the state value for normalization to 0..1."""
 
 
-class TranslationAnimationData(TranslationAnimation):
-    """Concrete frozen translation animation descriptor."""
-
-    __slots__ = (
-        "_role", "_axis", "_travel_m",
-        "_symmetric", "_state_source", "_state_range",
-    )
-
-    def __init__(
-        self,
-        *,
-        role: str,
-        axis: tuple[float, float, float],
-        travel_m: float,
-        symmetric: bool = True,
-        state_source: str = "grip_pos",
-        state_range: tuple[float, float] = (0.0, 1000.0),
-    ) -> None:
-        object.__setattr__(self, "_role", role)
-        object.__setattr__(self, "_axis", axis)
-        object.__setattr__(self, "_travel_m", travel_m)
-        object.__setattr__(self, "_symmetric", symmetric)
-        object.__setattr__(self, "_state_source", state_source)
-        object.__setattr__(self, "_state_range", state_range)
-
-    def __setattr__(self, _name: str, _value: object) -> None:
-        raise AttributeError("TranslationAnimationData is immutable")
-
-    @property
-    def role(self) -> str:
-        return self._role
-
-    @property
-    def axis(self) -> tuple[float, float, float]:
-        return self._axis
-
-    @property
-    def travel_m(self) -> float:
-        return self._travel_m
-
-    @property
-    def symmetric(self) -> bool:
-        return self._symmetric
-
-    @property
-    def state_source(self) -> str:
-        return self._state_source
-
-    @property
-    def state_range(self) -> tuple[float, float]:
-        return self._state_range
-
-    def __repr__(self) -> str:
-        return (
-            f"TranslationAnimationData(role={self._role!r}, axis={self._axis}, "
-            f"travel_m={self._travel_m})"
-        )
-
-
-class RotationAnimationData(RotationAnimation):
-    """Concrete frozen rotation animation descriptor."""
-
-    __slots__ = (
-        "_role", "_axis", "_travel_rad",
-        "_symmetric", "_state_source", "_state_range",
-    )
-
-    def __init__(
-        self,
-        *,
-        role: str,
-        axis: tuple[float, float, float],
-        travel_rad: float,
-        symmetric: bool = True,
-        state_source: str = "grip_pos",
-        state_range: tuple[float, float] = (0.0, 1000.0),
-    ) -> None:
-        object.__setattr__(self, "_role", role)
-        object.__setattr__(self, "_axis", axis)
-        object.__setattr__(self, "_travel_rad", travel_rad)
-        object.__setattr__(self, "_symmetric", symmetric)
-        object.__setattr__(self, "_state_source", state_source)
-        object.__setattr__(self, "_state_range", state_range)
-
-    def __setattr__(self, _name: str, _value: object) -> None:
-        raise AttributeError("RotationAnimationData is immutable")
-
-    @property
-    def role(self) -> str:
-        return self._role
-
-    @property
-    def axis(self) -> tuple[float, float, float]:
-        return self._axis
-
-    @property
-    def travel_rad(self) -> float:
-        return self._travel_rad
-
-    @property
-    def symmetric(self) -> bool:
-        return self._symmetric
-
-    @property
-    def state_source(self) -> str:
-        return self._state_source
-
-    @property
-    def state_range(self) -> tuple[float, float]:
-        return self._state_range
-
-    def __repr__(self) -> str:
-        return (
-            f"RotationAnimationData(role={self._role!r}, axis={self._axis}, "
-            f"travel_rad={self._travel_rad})"
-        )
+MeshAnimation = Union[TranslationAnimation, RotationAnimation]
+"""Type alias for any animation descriptor."""
 
 
 # ---------------------------------------------------------------------------
@@ -258,15 +130,26 @@ class ToolSpec(ABC):
         return ()
 
     @property
-    def animations(self) -> tuple[TranslationAnimation | RotationAnimation, ...]:
+    def animations(self) -> tuple[MeshAnimation, ...]:
         """Animation descriptors for movable tool parts."""
         return ()
 
 
-class GripperTool(ToolSpec):
-    """Contract for gripper tools (``tool_type == ToolType.GRIPPER``).
+# ---------------------------------------------------------------------------
+# Gripper hierarchy — tools own their control methods
+# ---------------------------------------------------------------------------
 
-    ``gripper_type`` selects which gripper panel variant to render.
+
+class GripperTool(ToolSpec):
+    """Base for all grippers.
+
+    All grippers support ``set_position()`` as the universal control method.
+    Position is normalized: 0.0 = fully closed, 1.0 = fully open.
+
+    How the tool communicates with hardware is an implementation detail
+    of the backend (internal send callback, shared connection, etc.).
+    Tool control methods become usable after the backend binds transport
+    during ``Robot.create_async_client()`` or ``Robot.start()``.
     """
 
     @property
@@ -275,20 +158,59 @@ class GripperTool(ToolSpec):
         """Gripper sub-type."""
         ...
 
+    @abstractmethod
+    async def set_position(self, position: float, **kwargs: object) -> int:
+        """Set gripper position. 0.0 = fully closed, 1.0 = fully open."""
+        ...
+
+    async def calibrate(self, **kwargs: object) -> int:
+        """Calibrate the gripper. Not all grippers support this."""
+        raise NotImplementedError
+
+
+class PneumaticGripperTool(GripperTool):
+    """Pneumatic gripper — binary open/close.
+
+    ``set_position()`` is concrete: clamps to binary and delegates
+    to the abstract ``open()``/``close()`` methods that backends implement.
+    """
+
+    @property
+    @abstractmethod
+    def io_port(self) -> int:
+        """Digital I/O port number for open/close control."""
+        ...
+
+    async def set_position(self, position: float, **kwargs: object) -> int:
+        """Binary position: > 0.5 opens, <= 0.5 closes."""
+        if position > 0.5:
+            return await self.open(**kwargs)
+        return await self.close(**kwargs)
+
+    @abstractmethod
+    async def open(self, **kwargs: object) -> int:
+        """Open the gripper."""
+        ...
+
+    @abstractmethod
+    async def close(self, **kwargs: object) -> int:
+        """Close the gripper."""
+        ...
+
 
 class ElectricGripperTool(GripperTool):
-    """Electric gripper — position/speed/current sliders."""
+    """Electric gripper — continuous position with speed and current control."""
 
     @property
     @abstractmethod
     def position_range(self) -> tuple[float, float]:
-        """(min, max) position range."""
+        """(min, max) position range (normalized 0..1)."""
         ...
 
     @property
     @abstractmethod
     def speed_range(self) -> tuple[float, float]:
-        """(min, max) speed range."""
+        """(min, max) speed range (normalized 0..1)."""
         ...
 
     @property
@@ -297,15 +219,15 @@ class ElectricGripperTool(GripperTool):
         """(min, max) current range in mA."""
         ...
 
-
-class PneumaticGripperTool(GripperTool):
-    """Pneumatic gripper — open/close via I/O port."""
-
-    @property
     @abstractmethod
-    def io_port(self) -> int:
-        """Digital I/O port number for open/close control."""
+    async def calibrate(self, **kwargs: object) -> int:
+        """Calibrate the electric gripper."""
         ...
+
+
+# ---------------------------------------------------------------------------
+# Tool collection
+# ---------------------------------------------------------------------------
 
 
 class ToolsSpec(ABC):
