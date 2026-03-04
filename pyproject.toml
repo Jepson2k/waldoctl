@@ -16,5 +16,5 @@ dependencies = [
 dev = ["ruff", "mypy", "pytest"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["waldoctl*"]

@@ -7,6 +7,8 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
+from waldoctl.tools import ToolStatus
+
 
 @runtime_checkable
 class StatusBuffer(Protocol):
@@ -20,11 +22,11 @@ class StatusBuffer(Protocol):
     angles: np.ndarray
     """(N,) float64 — joint angles in degrees."""
     speeds: np.ndarray
-    """(N,) float64 — joint speeds."""
+    """(N,) float64 — joint velocities in rad/s."""
     io: np.ndarray
     """(5,) int32 — [in1, in2, out1, out2, estop]."""
-    gripper: np.ndarray
-    """(6,) int32 — [id, pos, spd, cur, status, obj]."""
+    tool_status: ToolStatus
+    """Universal EOAT status (key, state, positions, etc.)."""
     joint_en: np.ndarray
     """(12,) int32 — joint enable envelope."""
     cart_en: dict[str, np.ndarray]
@@ -41,6 +43,8 @@ class StatusBuffer(Protocol):
     """Index of the last completed command (-1 if none)."""
     last_checkpoint: str
     """Label of the last checkpoint reached (empty if none)."""
+    tcp_speed: float
+    """TCP linear velocity in mm/s."""
 
 
 @dataclass

@@ -38,6 +38,26 @@ class KinodynamicLimits:
 
 
 @dataclass(frozen=True)
+class LinearAngularLimits:
+    """Paired linear and angular limit values."""
+
+    linear: float
+    """Linear limit — m/s (velocity) or m/s² (acceleration)."""
+    angular: float
+    """Angular limit — rad/s (velocity) or rad/s² (acceleration)."""
+
+
+@dataclass(frozen=True)
+class CartesianKinodynamicLimits:
+    """Cartesian velocity and acceleration limits for jog mode."""
+
+    velocity: LinearAngularLimits
+    """Max Cartesian velocity (linear m/s, angular rad/s)."""
+    acceleration: LinearAngularLimits
+    """Max Cartesian acceleration (linear m/s², angular rad/s²)."""
+
+
+@dataclass(frozen=True)
 class JointLimits:
     """All joint limits — position and kinodynamic."""
 

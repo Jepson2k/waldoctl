@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from waldoctl.client import RobotClient
 from waldoctl.dry_run import DryRunClient
-from waldoctl.joints import JointsSpec
+from waldoctl.joints import CartesianKinodynamicLimits, JointsSpec
 from waldoctl.results import IKResult
 from waldoctl.tools import ToolsSpec
 
@@ -45,6 +45,12 @@ class Robot(ABC):
     @abstractmethod
     def tools(self) -> ToolsSpec:
         """Available end-effector tools and their capabilities."""
+        ...
+
+    @property
+    @abstractmethod
+    def cartesian_limits(self) -> CartesianKinodynamicLimits:
+        """Jog-mode Cartesian velocity and acceleration limits."""
         ...
 
     # -- Unit preferences ---------------------------------------------------
@@ -149,12 +155,15 @@ class Robot(ABC):
     # -- Kinematics ---------------------------------------------------------
 
     @abstractmethod
-    def fk(self, q_rad: NDArray[np.float64]) -> NDArray[np.float64]:
+    def fk(
+        self, q_rad: NDArray[np.float64], out: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         """Forward kinematics.
 
         *q_rad*: joint angles in radians ``(num_joints,)``.
+        *out*: pre-allocated ``(6,)`` buffer to write the result into.
 
-        Returns ``(6,)`` — ``[x, y, z, rx, ry, rz]`` in meters + radians.
+        Returns *out* filled with ``[x, y, z, rx, ry, rz]`` in meters + radians.
         """
         ...
 
@@ -168,6 +177,23 @@ class Robot(ABC):
         *q_seed_rad*: current joint angles in radians (seed).
 
         Returns an ``IKResult`` with ``q`` in radians.
+        """
+        ...
+
+    @abstractmethod
+    def set_active_tool(
+        self,
+        tool_key: str,
+        tcp_offset_m: tuple[float, float, float] | None = None,
+        variant_key: str | None = None,
+    ) -> None:
+        """Apply tool transform to the local FK/IK model.
+
+        When set, ``fk()`` returns TCP position instead of flange position.
+
+        *tcp_offset_m*: optional (x, y, z) user offset in meters, composed
+        on top of the tool's registered transform.
+        *variant_key*: optional variant whose TCP overrides the tool default.
         """
         ...
 

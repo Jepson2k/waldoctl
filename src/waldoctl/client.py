@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from waldoctl.status import PingResult, StatusBuffer, ToolResult
+from waldoctl.tools import ToolSpec
 
 
 class RobotClient(ABC):
@@ -495,7 +496,15 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    # -- I/O ----------------------------------------------------------------
+    # -- I/O & Tools --------------------------------------------------------
+
+    @property
+    def tool(self) -> ToolSpec:
+        """The active bound tool.
+
+        Raises ``RuntimeError`` if no tool has been set.
+        """
+        raise NotImplementedError
 
     async def set_io(self, index: int, value: int) -> int:
         """Set digital I/O bit.
@@ -504,6 +513,28 @@ class RobotClient(ABC):
 
         Example:
             rbt.set_io(0, 1)
+        """
+        raise NotImplementedError
+
+    async def tool_action(
+        self,
+        tool_key: str,
+        action: str,
+        params: list[Any] | None = None,
+        *,
+        wait: bool = False,
+        timeout: float = 10.0,
+    ) -> int:
+        """Invoke a tool-specific action by key.
+
+        *tool_key*: identifier of the attached tool (e.g. ``"ELECTRIC"``).
+        *action*: action name understood by the tool (e.g. ``"calibrate"``, ``"move"``).
+        *params*: optional positional parameters for the action.
+
+        Category: I/O
+
+        Example:
+            rbt.tool_action("ELECTRIC", "calibrate")
         """
         raise NotImplementedError
 

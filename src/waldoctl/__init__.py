@@ -3,36 +3,46 @@
 from waldoctl.client import RobotClient
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import (
+    CartesianKinodynamicLimits,
     HomePosition,
     JointLimits,
     JointsSpec,
     KinodynamicLimits,
+    LinearAngularLimits,
     PositionLimits,
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
 from waldoctl.status import PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import (
+    ActivationType,
     ElectricGripperTool,
     GripperTool,
     GripperType,
-    MeshAnimation,
+    LinearMotion,
+    MeshRole,
+    MeshSpec,
+    PartMotion,
     PneumaticGripperTool,
-    RotationAnimation,
+    RotaryMotion,
+    ToggleMode,
     ToolSpec,
     ToolsSpec,
+    ToolStatus,
     ToolType,
-    TranslationAnimation,
+    ToolVariant,
 )
 
 __all__ = [
-    # Robot + Client ABCs
+    # Robot + Client ABCs / Protocols
     "Robot",
     "RobotClient",
     "DryRunClient",
     # Joints (frozen dataclasses)
     "PositionLimits",
     "KinodynamicLimits",
+    "LinearAngularLimits",
+    "CartesianKinodynamicLimits",
     "JointLimits",
     "HomePosition",
     "JointsSpec",
@@ -48,13 +58,19 @@ __all__ = [
     # Tools (enums + ABCs)
     "ToolType",
     "GripperType",
+    "ActivationType",
+    "ToggleMode",
+    "MeshRole",
     "ToolSpec",
     "GripperTool",
     "ElectricGripperTool",
     "PneumaticGripperTool",
     "ToolsSpec",
-    # Animations (frozen dataclasses + type alias)
-    "MeshAnimation",
-    "TranslationAnimation",
-    "RotationAnimation",
+    "ToolStatus",
+    # Mesh + motion descriptors (frozen dataclasses + type alias)
+    "MeshSpec",
+    "PartMotion",
+    "LinearMotion",
+    "RotaryMotion",
+    "ToolVariant",
 ]
