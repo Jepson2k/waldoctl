@@ -507,12 +507,12 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     async def set_io(self, index: int, value: int) -> int:
-        """Set digital I/O bit.
+        """Set digital output by logical index (0 = first output pin).
 
         Category: I/O
 
         Example:
-            rbt.set_io(0, 1)
+            rbt.set_io(0, 1)   # Set first output HIGH
         """
         raise NotImplementedError
 

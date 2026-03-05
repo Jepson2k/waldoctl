@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import TYPE_CHECKING, Any, Callable, Union
 
 if TYPE_CHECKING:
@@ -47,6 +47,15 @@ class ToggleMode(Enum):
     """Stateful on/off (grippers open/close, vacuum on/off)."""
     TRIGGER = "trigger"
     """One-shot cycle start (dispensers, welders)."""
+
+
+class ToolState(IntEnum):
+    """State of an end-of-arm tool."""
+
+    OFF = 0
+    IDLE = 1
+    ACTIVE = 2
+    ERROR = 3
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +156,29 @@ class ToolVariant:
 
 
 # ---------------------------------------------------------------------------
+# Channel descriptors — typed process data channels
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChannelDescriptor:
+    """Describes one process data channel reported by a tool.
+
+    The controller populates ``ToolStatus.channels`` positionally — index *i*
+    in the channels tuple corresponds to ``channel_descriptors[i]``.
+    """
+
+    name: str
+    """Human-readable name (e.g. ``"Force"``, ``"Current"``)."""
+    unit: str
+    """SI unit symbol (e.g. ``"N"``, ``"mA"``, ``"bar"``)."""
+    min: float = 0.0
+    """Minimum expected value (0 = auto-scale)."""
+    max: float = 0.0
+    """Maximum expected value (0 = auto-scale)."""
+
+
+# ---------------------------------------------------------------------------
 # Tool status — universal EOAT state
 # ---------------------------------------------------------------------------
 
@@ -158,31 +190,24 @@ class ToolStatus:
     Populated by the controller at the status broadcast rate (50 Hz).
     Consumers combine ``positions[i]`` with ``ToolSpec.motions[i]`` to
     reconstruct the physical state of each DOF without knowing the tool type.
+    Tool-specific process data is in ``channels``, described by the tool's
+    ``channel_descriptors``.
     """
 
     key: str = "NONE"
     """Attached tool key."""
-    state: int = 0
-    """0=off, 1=idle, 2=active, 3=error."""
+    state: ToolState = ToolState.OFF
+    """Tool operational state."""
     engaged: bool = False
     """Actively doing work (welding, gripping, dispensing)."""
     part_detected: bool = False
     """EOAT part/object presence confirmed."""
-    force: float = 0.0
-    """Force measurement (N)."""
-    pressure: float = 0.0
-    """Pressure measurement (bar)."""
-    process_value: float = 0.0
-    """Main process metric — meaning is tool-specific:
-    torque (driver), current (welder), flow (dispenser), RPM (spindle)."""
-    positions: tuple[float, ...] = ()
-    """DOF positions 0..1, one per PartMotion."""
-    cycle_complete: bool = False
-    """A discrete cycle just finished."""
-    cycle_result: int = 0
-    """0=none, 1=pass, 2=fail."""
     fault_code: int = 0
     """0=no fault, nonzero=tool-specific error."""
+    positions: tuple[float, ...] = ()
+    """DOF positions 0..1, one per PartMotion."""
+    channels: tuple[float, ...] = ()
+    """Tool-specific process data, described by ChannelDescriptor."""
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +224,45 @@ class ToolSpec(ABC):
     Action methods dispatch through ``_cmd()`` → ``_execute``.  Tools are
     bound to a client by setting ``_execute`` to the client's
     ``tool_action`` method (typically via shallow copy at client creation).
+
+    All tool configuration is immutable — fields are stored privately
+    and exposed via read-only properties.
     """
 
     _execute: Callable[..., Any] | None = None
+
+    def __init__(
+        self,
+        *,
+        key: str,
+        display_name: str,
+        tool_type: ToolType,
+        tcp_origin: tuple[float, float, float],
+        tcp_rpy: tuple[float, float, float],
+        description: str = "",
+        meshes: tuple[MeshSpec, ...] = (),
+        motions: tuple[PartMotion, ...] = (),
+        variants: tuple[ToolVariant, ...] = (),
+        activation_type: ActivationType = ActivationType.PROGRESSIVE,
+        toggle_labels: tuple[str, str] | None = None,
+        toggle_icons: tuple[str, str] | None = None,
+        toggle_mode: ToggleMode = ToggleMode.TOGGLE,
+        force_jog_step: int | None = None,
+    ) -> None:
+        self._key = key
+        self._display_name = display_name
+        self._tool_type = tool_type
+        self._tcp_origin = tcp_origin
+        self._tcp_rpy = tcp_rpy
+        self._description = description
+        self._meshes = meshes
+        self._motions = motions
+        self._variants = variants
+        self._activation_type = activation_type
+        self._toggle_labels = toggle_labels
+        self._toggle_icons = toggle_icons
+        self._toggle_mode = toggle_mode
+        self._force_jog_step = force_jog_step
 
     async def _cmd(
         self, action: str, params: list[Any] | None = None, **kwargs: object
@@ -214,87 +275,88 @@ class ToolSpec(ABC):
         return await self._execute(self.key, action, params or [], **kwargs)
 
     @property
-    @abstractmethod
     def key(self) -> str:
         """Unique instance identifier."""
-        ...
+        return self._key
 
     @property
-    @abstractmethod
     def display_name(self) -> str:
         """Human-readable name for UI display."""
-        ...
+        return self._display_name
 
     @property
-    @abstractmethod
     def tool_type(self) -> ToolType:
         """GUI category — determines which panel (if any) is shown."""
-        ...
+        return self._tool_type
 
     @property
-    @abstractmethod
     def tcp_origin(self) -> tuple[float, float, float]:
         """(x, y, z) translation from flange to TCP in meters."""
-        ...
+        return self._tcp_origin
 
     @property
-    @abstractmethod
     def tcp_rpy(self) -> tuple[float, float, float]:
         """(roll, pitch, yaw) orientation from flange to TCP in radians."""
-        ...
+        return self._tcp_rpy
 
     @property
     def activation_type(self) -> ActivationType:
         """How the tool is activated — binary (on/off) or progressive (continuous)."""
-        return ActivationType.PROGRESSIVE
+        return self._activation_type
 
     @property
     def description(self) -> str:
         """Short description of the tool."""
-        return ""
+        return self._description
 
     @property
     def meshes(self) -> tuple[MeshSpec, ...]:
         """Mesh descriptors for 3D visualization."""
-        return ()
+        return self._meshes
 
     @property
     def motions(self) -> tuple[PartMotion, ...]:
         """Physical motion descriptors for movable tool parts."""
-        return ()
+        return self._motions
 
     @property
     def variants(self) -> tuple[ToolVariant, ...]:
         """Named mesh/motion variants (e.g. different jaw sets)."""
-        return ()
-
-    # -- Quick-action properties for control panel ---
+        return self._variants
 
     @property
     def toggle_labels(self) -> tuple[str, str] | None:
-        """``(off_label, on_label)`` for toggle tooltip text.
-
-        Return ``None`` if the tool has no quick toggle action.
-        """
-        return None
+        """``(off_label, on_label)`` for toggle tooltip text."""
+        return self._toggle_labels
 
     @property
     def toggle_icons(self) -> tuple[str, str] | None:
-        """``(off_icon, on_icon)`` Material Icon names for the toggle button.
-
-        Return ``None`` if the tool has no quick toggle action.
-        """
-        return None
+        """``(off_icon, on_icon)`` Material Icon names for the toggle button."""
+        return self._toggle_icons
 
     @property
     def toggle_mode(self) -> ToggleMode:
         """How the toggle behaves — stateful on/off or one-shot trigger."""
-        return ToggleMode.TOGGLE
+        return self._toggle_mode
 
     @property
     def force_jog_step(self) -> int | None:
         """Current/force jog step in mA, or ``None`` if not supported."""
-        return None
+        return self._force_jog_step
+
+    @property
+    def channel_descriptors(self) -> tuple[ChannelDescriptor, ...]:
+        """Descriptors for tool-specific process data channels."""
+        return ()
+
+    async def toggle(self, engaged: bool) -> None:
+        """Toggle the tool's primary action based on current engagement state.
+
+        Override in subclasses to define tool-specific toggle behavior.
+        """
+        raise NotImplementedError(
+            f"Tool '{self.key}' does not support toggle"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +374,12 @@ class GripperTool(ToolSpec):
     Bind to a client (``_execute``) before calling.
     """
 
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("tool_type", ToolType.GRIPPER)
+        kwargs.setdefault("toggle_labels", ("Close", "Open"))
+        kwargs.setdefault("toggle_icons", ("close_fullscreen", "open_in_full"))
+        super().__init__(**kwargs)
+
     @property
     @abstractmethod
     def gripper_type(self) -> GripperType:
@@ -328,19 +396,24 @@ class GripperTool(ToolSpec):
         """Calibrate the gripper. Not all grippers support this."""
         return await self._cmd("calibrate")
 
-    # -- Quick-action overrides ---
-
-    @property
-    def toggle_labels(self) -> tuple[str, str]:
-        return ("Close", "Open")
-
-    @property
-    def toggle_icons(self) -> tuple[str, str]:
-        return ("close_fullscreen", "open_in_full")
-
     def is_open(self, position: float) -> bool:
         """Infer open/closed from normalized position. True = open."""
         return position < 0.5
+
+    async def toggle(self, engaged: bool) -> None:
+        """Toggle gripper: open if engaged, close if not."""
+        if engaged:
+            await self.open()
+        else:
+            await self.close()
+
+    async def open(self, **kwargs: object) -> int:
+        """Open the gripper."""
+        return await self.set_position(0.0, **kwargs)
+
+    async def close(self, **kwargs: object) -> int:
+        """Close the gripper."""
+        return await self.set_position(1.0, **kwargs)
 
 
 class PneumaticGripperTool(GripperTool):
@@ -349,15 +422,19 @@ class PneumaticGripperTool(GripperTool):
     ``set_position()`` clamps to binary and delegates to ``open()``/``close()``.
     """
 
-    @property
-    def activation_type(self) -> ActivationType:
-        return ActivationType.BINARY
+    def __init__(self, *, io_port: int, **kwargs: Any) -> None:
+        kwargs.setdefault("activation_type", ActivationType.BINARY)
+        super().__init__(**kwargs)
+        self._io_port = io_port
 
     @property
-    @abstractmethod
+    def gripper_type(self) -> GripperType:
+        return GripperType.PNEUMATIC
+
+    @property
     def io_port(self) -> int:
         """Digital I/O port number for open/close control."""
-        ...
+        return self._io_port
 
     async def set_position(self, position: float, **kwargs: object) -> int:
         """Binary position: < 0.5 opens, >= 0.5 closes."""
@@ -377,23 +454,37 @@ class PneumaticGripperTool(GripperTool):
 class ElectricGripperTool(GripperTool):
     """Electric gripper — continuous position with speed and current control."""
 
+    def __init__(
+        self,
+        *,
+        position_range: tuple[float, float],
+        speed_range: tuple[float, float],
+        current_range: tuple[int, int],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._position_range = position_range
+        self._speed_range = speed_range
+        self._current_range = current_range
+
     @property
-    @abstractmethod
+    def gripper_type(self) -> GripperType:
+        return GripperType.ELECTRIC
+
+    @property
     def position_range(self) -> tuple[float, float]:
         """(min, max) position range (normalized 0..1)."""
-        ...
+        return self._position_range
 
     @property
-    @abstractmethod
     def speed_range(self) -> tuple[float, float]:
         """(min, max) speed range (normalized 0..1)."""
-        ...
+        return self._speed_range
 
     @property
-    @abstractmethod
     def current_range(self) -> tuple[int, int]:
         """(min, max) current range in mA."""
-        ...
+        return self._current_range
 
     async def set_position(self, position: float, **kwargs: object) -> int:
         """Set position with speed and current control."""
@@ -410,6 +501,13 @@ class ElectricGripperTool(GripperTool):
         """Default current step: ~10% of range, rounded to nearest 10 mA."""
         lo, hi = self.current_range
         return max(10, round((hi - lo) / 10 / 10) * 10)
+
+    @property
+    def channel_descriptors(self) -> tuple[ChannelDescriptor, ...]:
+        return (
+            ChannelDescriptor(name="Force", unit="N"),
+            ChannelDescriptor(name="Current", unit="mA"),
+        )
 
 
 # ---------------------------------------------------------------------------

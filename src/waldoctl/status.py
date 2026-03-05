@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Protocol, runtime_checkable
 
 import numpy as np
 
 from waldoctl.tools import ToolStatus
+
+
+class ActionState(IntEnum):
+    """State of the currently executing action on the controller."""
+
+    IDLE = 0
+    EXECUTING = 1
+    ERROR = 2
 
 
 @runtime_checkable
@@ -35,7 +44,7 @@ class StatusBuffer(Protocol):
     """Currently executing action name."""
     action_params: str
     """Brief serialization of current action parameters."""
-    action_state: str
+    action_state: ActionState
     """State of the current action."""
     executing_index: int
     """Index of the command currently being executed (-1 if idle)."""

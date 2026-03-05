@@ -32,6 +32,12 @@ class SyncGripperTool(GripperTool):
         self._async = async_tool
         self._run = run
 
+    def __getattr__(self, name: str) -> object:
+        async_tool = self.__dict__.get("_async")
+        if async_tool is not None:
+            return getattr(async_tool, name)
+        raise AttributeError(name)
+
     # -- abstract property delegations --
 
     @property
@@ -85,6 +91,12 @@ class SyncPneumaticGripperTool(PneumaticGripperTool):
         self._async = async_tool
         self._run = run
 
+    def __getattr__(self, name: str) -> object:
+        async_tool = self.__dict__.get("_async")
+        if async_tool is not None:
+            return getattr(async_tool, name)
+        raise AttributeError(name)
+
     @property
     def key(self) -> str:
         return self._async.key
@@ -134,6 +146,12 @@ class SyncElectricGripperTool(ElectricGripperTool):
     def __init__(self, async_tool: ElectricGripperTool, run: Callable) -> None:
         self._async = async_tool
         self._run = run
+
+    def __getattr__(self, name: str) -> object:
+        async_tool = self.__dict__.get("_async")
+        if async_tool is not None:
+            return getattr(async_tool, name)
+        raise AttributeError(name)
 
     @property
     def key(self) -> str:

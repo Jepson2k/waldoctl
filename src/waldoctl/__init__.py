@@ -13,9 +13,10 @@ from waldoctl.joints import (
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
-from waldoctl.status import PingResult, StatusBuffer, ToolResult
+from waldoctl.status import ActionState, PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import (
     ActivationType,
+    ChannelDescriptor,
     ElectricGripperTool,
     GripperTool,
     GripperType,
@@ -28,6 +29,7 @@ from waldoctl.tools import (
     ToggleMode,
     ToolSpec,
     ToolsSpec,
+    ToolState,
     ToolStatus,
     ToolType,
     ToolVariant,
@@ -51,10 +53,11 @@ __all__ = [
     "DryRunResult",
     "IKResultData",
     "DryRunResultData",
-    # Status (Protocol + dataclasses)
+    # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
     "PingResult",
     "ToolResult",
+    "ActionState",
     # Tools (enums + ABCs)
     "ToolType",
     "GripperType",
@@ -66,7 +69,9 @@ __all__ = [
     "ElectricGripperTool",
     "PneumaticGripperTool",
     "ToolsSpec",
+    "ToolState",
     "ToolStatus",
+    "ChannelDescriptor",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
     "MeshSpec",
     "PartMotion",
