@@ -14,6 +14,7 @@ from waldoctl.joints import (
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
 from waldoctl.status import ActionState, PingResult, StatusBuffer, ToolResult
+from waldoctl.types import Axis, Frame
 from waldoctl.tools import (
     ActivationType,
     ChannelDescriptor,
@@ -72,6 +73,9 @@ __all__ = [
     "ToolState",
     "ToolStatus",
     "ChannelDescriptor",
+    # Type aliases
+    "Frame",
+    "Axis",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
     "MeshSpec",
     "PartMotion",

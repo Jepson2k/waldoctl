@@ -66,16 +66,16 @@ class SyncGripperTool(GripperTool):
 
     # -- action methods --
 
-    def set_position(self, position: float, **kwargs: object) -> int:  # type: ignore[override]
+    def set_position(self, position: float, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.set_position(position, **kwargs))
 
-    def open(self, **kwargs: object) -> int:  # type: ignore[override]
+    def open(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.open(**kwargs))
 
-    def close(self, **kwargs: object) -> int:  # type: ignore[override]
+    def close(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.close(**kwargs))
 
-    def calibrate(self, **kwargs: object) -> int:  # type: ignore[override]
+    def calibrate(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.calibrate(**kwargs))
 
 
@@ -125,13 +125,13 @@ class SyncPneumaticGripperTool(PneumaticGripperTool):
     def io_port(self) -> int:
         return self._async.io_port
 
-    def set_position(self, position: float, **kwargs: object) -> int:  # type: ignore[override]
+    def set_position(self, position: float, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.set_position(position, **kwargs))
 
-    def open(self, **kwargs: object) -> int:  # type: ignore[override]
+    def open(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.open(**kwargs))
 
-    def close(self, **kwargs: object) -> int:  # type: ignore[override]
+    def close(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.close(**kwargs))
 
 
@@ -189,10 +189,10 @@ class SyncElectricGripperTool(ElectricGripperTool):
     def current_range(self) -> tuple[int, int]:
         return self._async.current_range
 
-    def set_position(self, position: float, **kwargs: object) -> int:  # type: ignore[override]
+    def set_position(self, position: float, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.set_position(position, **kwargs))
 
-    def calibrate(self, **kwargs: object) -> int:  # type: ignore[override]
+    def calibrate(self, **kwargs: float | int) -> int:  # type: ignore[override]
         return self._run(self._async.calibrate(**kwargs))
 
 

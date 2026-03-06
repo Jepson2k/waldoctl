@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Callable, Union
-
-if TYPE_CHECKING:
-    from waldoctl.client import RobotClient
+from typing import Any, Union
 
 
 class ToolType(Enum):
@@ -221,15 +218,10 @@ class ToolSpec(ABC):
     ``key`` is unique per tool instance (e.g. ``"pneumatic_left"``).
     ``tool_type`` determines which GUI panel category the tool belongs to.
 
-    Action methods dispatch through ``_cmd()`` → ``_execute``.  Tools are
-    bound to a client by setting ``_execute`` to the client's
-    ``tool_action`` method (typically via shallow copy at client creation).
-
     All tool configuration is immutable — fields are stored privately
-    and exposed via read-only properties.
+    and exposed via read-only properties.  Action methods (e.g. toggle)
+    are abstract — backends provide concrete implementations.
     """
-
-    _execute: Callable[..., Any] | None = None
 
     def __init__(
         self,
@@ -263,16 +255,6 @@ class ToolSpec(ABC):
         self._toggle_icons = toggle_icons
         self._toggle_mode = toggle_mode
         self._force_jog_step = force_jog_step
-
-    async def _cmd(
-        self, action: str, params: list[Any] | None = None, **kwargs: object
-    ) -> int:
-        """Dispatch a command through the bound client."""
-        if self._execute is None:
-            raise RuntimeError(
-                "Tool not bound to a client. Access via client.tool."
-            )
-        return await self._execute(self.key, action, params or [], **kwargs)
 
     @property
     def key(self) -> str:
@@ -354,9 +336,7 @@ class ToolSpec(ABC):
 
         Override in subclasses to define tool-specific toggle behavior.
         """
-        raise NotImplementedError(
-            f"Tool '{self.key}' does not support toggle"
-        )
+        raise NotImplementedError(f"Tool '{self.key}' does not support toggle")
 
 
 # ---------------------------------------------------------------------------
@@ -370,8 +350,7 @@ class GripperTool(ToolSpec):
     All grippers support ``set_position()`` as the universal control method.
     Position is normalized: 0.0 = fully open, 1.0 = fully closed.
 
-    Action methods are concrete and dispatch through ``_cmd()``.
-    Bind to a client (``_execute``) before calling.
+    Action methods are abstract — backends provide concrete implementations.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -386,15 +365,14 @@ class GripperTool(ToolSpec):
         """Gripper sub-type."""
         ...
 
-    async def set_position(self, position: float, **kwargs: object) -> int:
+    @abstractmethod
+    async def set_position(self, position: float, **kwargs: float | int) -> int:
         """Set gripper position. 0.0 = fully open, 1.0 = fully closed."""
-        speed = float(kwargs.get("speed", 0.5))
-        current = int(kwargs.get("current", 500))
-        return await self._cmd("move", [position, speed, current])
+        ...
 
     async def calibrate(self, **kwargs: object) -> int:
         """Calibrate the gripper. Not all grippers support this."""
-        return await self._cmd("calibrate")
+        raise NotImplementedError
 
     def is_open(self, position: float) -> bool:
         """Infer open/closed from normalized position. True = open."""
@@ -407,19 +385,21 @@ class GripperTool(ToolSpec):
         else:
             await self.close()
 
-    async def open(self, **kwargs: object) -> int:
+    @abstractmethod
+    async def open(self, **kwargs: float | int) -> int:
         """Open the gripper."""
-        return await self.set_position(0.0, **kwargs)
+        ...
 
-    async def close(self, **kwargs: object) -> int:
+    @abstractmethod
+    async def close(self, **kwargs: float | int) -> int:
         """Close the gripper."""
-        return await self.set_position(1.0, **kwargs)
+        ...
 
 
 class PneumaticGripperTool(GripperTool):
     """Pneumatic gripper — binary open/close.
 
-    ``set_position()`` clamps to binary and delegates to ``open()``/``close()``.
+    Action methods are abstract — backends provide concrete implementations.
     """
 
     def __init__(self, *, io_port: int, **kwargs: Any) -> None:
@@ -436,23 +416,14 @@ class PneumaticGripperTool(GripperTool):
         """Digital I/O port number for open/close control."""
         return self._io_port
 
-    async def set_position(self, position: float, **kwargs: object) -> int:
-        """Binary position: < 0.5 opens, >= 0.5 closes."""
-        if position < 0.5:
-            return await self.open(**kwargs)
-        return await self.close(**kwargs)
-
-    async def open(self, **kwargs: object) -> int:
-        """Open the gripper."""
-        return await self._cmd("open")
-
-    async def close(self, **kwargs: object) -> int:
-        """Close the gripper."""
-        return await self._cmd("close")
-
 
 class ElectricGripperTool(GripperTool):
-    """Electric gripper — continuous position with speed and current control."""
+    """Electric gripper — continuous position with speed and current control.
+
+    Action methods and computed properties (``force_jog_step``,
+    ``channel_descriptors``) are abstract — backends provide concrete
+    implementations.
+    """
 
     def __init__(
         self,
@@ -485,29 +456,6 @@ class ElectricGripperTool(GripperTool):
     def current_range(self) -> tuple[int, int]:
         """(min, max) current range in mA."""
         return self._current_range
-
-    async def set_position(self, position: float, **kwargs: object) -> int:
-        """Set position with speed and current control."""
-        speed = float(kwargs.get("speed", 0.5))
-        current = int(kwargs.get("current", self.current_range[0]))
-        return await self._cmd("move", [position, speed, current])
-
-    async def calibrate(self, **kwargs: object) -> int:
-        """Calibrate the electric gripper."""
-        return await self._cmd("calibrate")
-
-    @property
-    def force_jog_step(self) -> int:
-        """Default current step: ~10% of range, rounded to nearest 10 mA."""
-        lo, hi = self.current_range
-        return max(10, round((hi - lo) / 10 / 10) * 10)
-
-    @property
-    def channel_descriptors(self) -> tuple[ChannelDescriptor, ...]:
-        return (
-            ChannelDescriptor(name="Force", unit="N"),
-            ChannelDescriptor(name="Current", unit="mA"),
-        )
 
 
 # ---------------------------------------------------------------------------

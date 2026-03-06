@@ -8,6 +8,7 @@ from typing import Any
 
 from waldoctl.status import PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import ToolSpec
+from waldoctl.types import Axis, Frame
 
 
 class RobotClient(ABC):
@@ -93,7 +94,7 @@ class RobotClient(ABC):
         self,
         pose: list[float],
         *,
-        frame: str = "WRF",
+        frame: Frame = "WRF",
         duration: float = 0.0,
         speed: float = 0.0,
         accel: float = 1.0,
@@ -133,7 +134,7 @@ class RobotClient(ABC):
         via: list[float],
         end: list[float],
         *,
-        frame: str = "WRF",
+        frame: Frame = "WRF",
         duration: float | None = None,
         speed: float | None = None,
         accel: float = 1.0,
@@ -154,7 +155,7 @@ class RobotClient(ABC):
         self,
         waypoints: list[list[float]],
         *,
-        frame: str = "WRF",
+        frame: Frame = "WRF",
         duration: float | None = None,
         speed: float | None = None,
         accel: float = 1.0,
@@ -174,7 +175,7 @@ class RobotClient(ABC):
         self,
         waypoints: list[list[float]],
         *,
-        frame: str = "WRF",
+        frame: Frame = "WRF",
         duration: float | None = None,
         speed: float | None = None,
         accel: float = 1.0,
@@ -260,12 +261,12 @@ class RobotClient(ABC):
     @abstractmethod
     async def jogL(
         self,
-        frame: str,
-        axis: str | None = None,
+        frame: Frame,
+        axis: Axis | None = None,
         speed: float = 0.0,
         duration: float = 0.1,
         *,
-        axes: list[str] | None = None,
+        axes: list[Axis] | None = None,
         speeds_list: list[float] | None = None,
         accel: float = 1.0,
     ) -> int:
@@ -391,7 +392,7 @@ class RobotClient(ABC):
         ...
 
     @abstractmethod
-    async def get_pose(self, frame: str = "WRF") -> list[float] | None:
+    async def get_pose(self, frame: Frame = "WRF") -> list[float] | None:
         """Get current pose as flattened 4x4 matrix.
 
         Category: Query
