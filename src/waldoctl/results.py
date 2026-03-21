@@ -35,6 +35,8 @@ class DryRunResult(Protocol):
     """Structured error (e.g. RobotError), or None on success."""
     valid: NDArray[np.bool_] | None
     """(N,) per-pose IK validity; None means all poses are valid."""
+    joint_trajectory_rad: NDArray[np.float64] | None
+    """(N, num_joints) — full joint trajectory in radians, aligned with tcp_poses rows. None if unavailable."""
 
 
 @dataclass
@@ -55,3 +57,4 @@ class DryRunResultData:
     duration: float
     error: object | None = None
     valid: NDArray[np.bool_] | None = None
+    joint_trajectory_rad: NDArray[np.float64] | None = None

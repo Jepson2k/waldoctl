@@ -374,6 +374,21 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    async def teleport(
+        self,
+        angles_deg: list[float],
+        tool_positions: list[float] | None = None,
+    ) -> int:
+        """Instantly set joint angles and optional tool positions (simulator only).
+
+        Category: Control
+
+        Example:
+            rbt.teleport([0, -90, 0, 0, 0, 0])
+            rbt.teleport([0, -90, 0, 0, 0, 0], tool_positions=[1.0])
+        """
+        raise NotImplementedError
+
     async def set_freedrive(self, enabled: bool) -> int:
         """Enable or disable freedrive / teach mode."""
         raise NotImplementedError
@@ -487,7 +502,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def set_tool(self, tool_name: str) -> int:
+    async def set_tool(self, tool_name: str, variant_key: str = "") -> int:
         """Set the active end-effector tool on the controller.
 
         Category: Configuration

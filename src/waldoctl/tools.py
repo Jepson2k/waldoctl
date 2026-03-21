@@ -236,10 +236,15 @@ class ToolSpec(ABC):
         motions: tuple[PartMotion, ...] = (),
         variants: tuple[ToolVariant, ...] = (),
         activation_type: ActivationType = ActivationType.PROGRESSIVE,
-        toggle_labels: tuple[str, str] | None = None,
-        toggle_icons: tuple[str, str] | None = None,
-        toggle_mode: ToggleMode = ToggleMode.TOGGLE,
-        force_jog_step: int | None = None,
+        action_l_labels: tuple[str, str] | None = None,
+        action_l_icons: tuple[str, str] | None = None,
+        action_l_mode: ToggleMode = ToggleMode.TOGGLE,
+        adjust_step: int | None = None,
+        adjust_labels: tuple[str, str] | None = None,
+        adjust_icons: tuple[str, str] | None = None,
+        action_r_labels: tuple[str, str] | None = None,
+        action_r_icons: tuple[str, str] | None = None,
+        action_r_mode: ToggleMode = ToggleMode.TRIGGER,
     ) -> None:
         self._key = key
         self._display_name = display_name
@@ -251,10 +256,15 @@ class ToolSpec(ABC):
         self._motions = motions
         self._variants = variants
         self._activation_type = activation_type
-        self._toggle_labels = toggle_labels
-        self._toggle_icons = toggle_icons
-        self._toggle_mode = toggle_mode
-        self._force_jog_step = force_jog_step
+        self._action_l_labels = action_l_labels
+        self._action_l_icons = action_l_icons
+        self._action_l_mode = action_l_mode
+        self._adjust_step = adjust_step
+        self._adjust_labels = adjust_labels
+        self._adjust_icons = adjust_icons
+        self._action_r_labels = action_r_labels
+        self._action_r_icons = action_r_icons
+        self._action_r_mode = action_r_mode
 
     @property
     def key(self) -> str:
@@ -307,36 +317,68 @@ class ToolSpec(ABC):
         return self._variants
 
     @property
-    def toggle_labels(self) -> tuple[str, str] | None:
-        """``(off_label, on_label)`` for toggle tooltip text."""
-        return self._toggle_labels
+    def action_l_labels(self) -> tuple[str, str] | None:
+        """``(off_label, on_label)`` tooltip text for the left action button."""
+        return self._action_l_labels
 
     @property
-    def toggle_icons(self) -> tuple[str, str] | None:
-        """``(off_icon, on_icon)`` Material Icon names for the toggle button."""
-        return self._toggle_icons
+    def action_l_icons(self) -> tuple[str, str] | None:
+        """``(off_icon, on_icon)`` Material Icon names for the left action button."""
+        return self._action_l_icons
 
     @property
-    def toggle_mode(self) -> ToggleMode:
-        """How the toggle behaves — stateful on/off or one-shot trigger."""
-        return self._toggle_mode
+    def action_l_mode(self) -> ToggleMode:
+        """How the left action button behaves — stateful on/off or one-shot trigger."""
+        return self._action_l_mode
 
     @property
-    def force_jog_step(self) -> int | None:
-        """Current/force jog step in mA, or ``None`` if not supported."""
-        return self._force_jog_step
+    def adjust_step(self) -> int | None:
+        """Step size for the +/- adjust buttons, or ``None`` if not supported."""
+        return self._adjust_step
+
+    @property
+    def adjust_labels(self) -> tuple[str, str] | None:
+        """``(decrease_label, increase_label)`` tooltip text for adjust buttons."""
+        return self._adjust_labels
+
+    @property
+    def adjust_icons(self) -> tuple[str, str] | None:
+        """``(decrease_icon, increase_icon)`` Material Icon names for adjust buttons."""
+        return self._adjust_icons
+
+    @property
+    def action_r_labels(self) -> tuple[str, str] | None:
+        """``(off_label, on_label)`` tooltip text for the right action button."""
+        return self._action_r_labels
+
+    @property
+    def action_r_icons(self) -> tuple[str, str] | None:
+        """``(off_icon, on_icon)`` Material Icon names for the right action button."""
+        return self._action_r_icons
+
+    @property
+    def action_r_mode(self) -> ToggleMode:
+        """How the right action button behaves — stateful on/off or one-shot trigger."""
+        return self._action_r_mode
 
     @property
     def channel_descriptors(self) -> tuple[ChannelDescriptor, ...]:
         """Descriptors for tool-specific process data channels."""
         return ()
 
-    async def toggle(self, engaged: bool) -> None:
-        """Toggle the tool's primary action based on current engagement state.
+    async def action_l(self, engaged: bool) -> None:
+        """Left action button handler.
 
-        Override in subclasses to define tool-specific toggle behavior.
+        Override in subclasses to define tool-specific behavior.
         """
-        raise NotImplementedError(f"Tool '{self.key}' does not support toggle")
+        raise NotImplementedError(f"Tool '{self.key}' does not support action_l")
+
+    async def action_r(self, engaged: bool) -> None:
+        """Right action button handler.
+
+        Override in subclasses to define tool-specific behavior.
+        """
+        raise NotImplementedError(f"Tool '{self.key}' does not support action_r")
 
 
 # ---------------------------------------------------------------------------
@@ -355,8 +397,8 @@ class GripperTool(ToolSpec):
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("tool_type", ToolType.GRIPPER)
-        kwargs.setdefault("toggle_labels", ("Close", "Open"))
-        kwargs.setdefault("toggle_icons", ("close_fullscreen", "open_in_full"))
+        kwargs.setdefault("action_l_labels", ("Close", "Open"))
+        kwargs.setdefault("action_l_icons", ("close_fullscreen", "open_in_full"))
         super().__init__(**kwargs)
 
     @property
@@ -378,8 +420,8 @@ class GripperTool(ToolSpec):
         """Infer open/closed from normalized position. True = open."""
         return position < 0.5
 
-    async def toggle(self, engaged: bool) -> None:
-        """Toggle gripper: open if engaged, close if not."""
+    async def action_l(self, engaged: bool) -> None:
+        """Left action: open if engaged, close if not."""
         if engaged:
             await self.open()
         else:
@@ -420,7 +462,7 @@ class PneumaticGripperTool(GripperTool):
 class ElectricGripperTool(GripperTool):
     """Electric gripper — continuous position with speed and current control.
 
-    Action methods and computed properties (``force_jog_step``,
+    Action methods and computed properties (``adjust_step``,
     ``channel_descriptors``) are abstract — backends provide concrete
     implementations.
     """
