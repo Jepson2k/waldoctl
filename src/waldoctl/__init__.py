@@ -1,5 +1,9 @@
 # waldoctl — Shared interface definitions for robot arm control
 
+from importlib.metadata import version as _get_version
+
+__version__ = _get_version("waldoctl")
+
 from waldoctl.client import RobotClient
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import (
@@ -76,6 +80,8 @@ __all__ = [
     # Type aliases
     "Frame",
     "Axis",
+    # Version
+    "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
     "MeshSpec",
     "PartMotion",
