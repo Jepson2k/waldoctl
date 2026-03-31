@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from waldoctl.status import PingResult, StatusBuffer, ToolResult
+from waldoctl.status import ActivityResult, PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
 
@@ -52,21 +52,21 @@ class RobotClient(ABC):
     # -- Status streaming ---------------------------------------------------
 
     @abstractmethod
-    def status_stream(self) -> AsyncIterator[StatusBuffer]:
+    def stream_status(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (yields copies, safe to store)."""
         ...
 
     @abstractmethod
-    def status_stream_shared(self) -> AsyncIterator[StatusBuffer]:
+    def stream_status_shared(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (shared buffer, zero-copy)."""
         ...
 
     # -- Motion commands (trajectory-planned) ---------------------------------
 
     @abstractmethod
-    async def moveJ(
+    async def move_j(
         self,
-        target: list[float],
+        angles: list[float],
         *,
         pose: list[float] | None = None,
         duration: float = 0.0,
@@ -77,7 +77,7 @@ class RobotClient(ABC):
         wait: bool = False,
         **wait_kwargs: Any,
     ) -> int:
-        """Joint-space move. *target*: joint angles in degrees.
+        """Joint-space move. *angles*: joint angles in degrees.
 
         If *pose* is given, performs joint-interpolated move to Cartesian target.
         Returns the command index (>= 0) on success, -1 on failure.
@@ -85,12 +85,12 @@ class RobotClient(ABC):
         Category: Motion
 
         Example:
-            rbt.moveJ(<joint_angles_deg>, speed=0.5)
+            rbt.move_j(<joint_angles_deg>, speed=0.5)
         """
         ...
 
     @abstractmethod
-    async def moveL(
+    async def move_l(
         self,
         pose: list[float],
         *,
@@ -110,7 +110,7 @@ class RobotClient(ABC):
         Category: Motion
 
         Example:
-            rbt.moveL(<tcp_pose_mm_deg>, speed=0.5)
+            rbt.move_l(<tcp_pose_mm_deg>, speed=0.5)
         """
         ...
 
@@ -129,7 +129,7 @@ class RobotClient(ABC):
 
     # -- Advanced motion (optional) -----------------------------------------
 
-    async def moveC(
+    async def move_c(
         self,
         via: list[float],
         end: list[float],
@@ -147,11 +147,11 @@ class RobotClient(ABC):
         Category: Motion
 
         Example:
-            rbt.moveC(<via_pose>, <end_pose>, speed=0.5)
+            rbt.move_c(<via_pose>, <end_pose>, speed=0.5)
         """
         raise NotImplementedError
 
-    async def moveS(
+    async def move_s(
         self,
         waypoints: list[list[float]],
         *,
@@ -167,11 +167,11 @@ class RobotClient(ABC):
         Category: Motion
 
         Example:
-            rbt.moveS(<waypoints>, speed=0.5)
+            rbt.move_s(<waypoints>, speed=0.5)
         """
         raise NotImplementedError
 
-    async def moveP(
+    async def move_p(
         self,
         waypoints: list[list[float]],
         *,
@@ -187,16 +187,16 @@ class RobotClient(ABC):
         Category: Motion
 
         Example:
-            rbt.moveP(<waypoints>, speed=0.5)
+            rbt.move_p(<waypoints>, speed=0.5)
         """
         raise NotImplementedError
 
     # -- Servo commands (streaming position) --------------------------------
 
     @abstractmethod
-    async def servoJ(
+    async def servo_j(
         self,
-        target: list[float],
+        angles: list[float],
         *,
         pose: list[float] | None = None,
         speed: float = 1.0,
@@ -204,18 +204,18 @@ class RobotClient(ABC):
     ) -> int:
         """Streaming joint position target (fire-and-forget).
 
-        *target*: joint angles in degrees (ignored if *pose* is set).
+        *angles*: joint angles in degrees (ignored if *pose* is set).
         If *pose* is given, dispatches to Cartesian target via IK.
 
         Category: Streaming
 
         Example:
-            rbt.servoJ(<joint_angles_deg>)
+            rbt.servo_j(<joint_angles_deg>)
         """
         ...
 
     @abstractmethod
-    async def servoL(
+    async def servo_l(
         self,
         pose: list[float],
         *,
@@ -229,14 +229,14 @@ class RobotClient(ABC):
         Category: Streaming
 
         Example:
-            rbt.servoL(<tcp_pose_mm_deg>)
+            rbt.servo_l(<tcp_pose_mm_deg>)
         """
         ...
 
     # -- Jog commands (streaming velocity) ----------------------------------
 
     @abstractmethod
-    async def jogJ(
+    async def jog_j(
         self,
         joint: int,
         speed: float = 0.0,
@@ -248,18 +248,18 @@ class RobotClient(ABC):
     ) -> int:
         """Joint velocity jog. Single-joint or multi-joint.
 
-        Single joint: ``jogJ(0, 0.5, 1.0)``
-        Multi joint:  ``jogJ(joints=[0, 1], speeds=[0.5, -0.3], duration=1.0)``
+        Single joint: ``jog_j(0, 0.5, 1.0)``
+        Multi joint:  ``jog_j(joints=[0, 1], speeds=[0.5, -0.3], duration=1.0)``
 
         Category: Jog
 
         Example:
-            rbt.jogJ(<joint_index>, speed=0.5, duration=1.0)
+            rbt.jog_j(<joint_index>, speed=0.5, duration=1.0)
         """
         ...
 
     @abstractmethod
-    async def jogL(
+    async def jog_l(
         self,
         frame: Frame,
         axis: Axis | None = None,
@@ -272,20 +272,20 @@ class RobotClient(ABC):
     ) -> int:
         """Cartesian velocity jog. Single-axis or multi-axis.
 
-        Single axis: ``jogL("WRF", "X", 0.5, 1.0)``
-        Multi axis:  ``jogL("WRF", axes=["X", "Y"], speeds_list=[0.5, -0.3])``
+        Single axis: ``jog_l("WRF", "X", 0.5, 1.0)``
+        Multi axis:  ``jog_l("WRF", axes=["X", "Y"], speeds_list=[0.5, -0.3])``
 
         Category: Jog
 
         Example:
-            rbt.jogL("WRF", "X", speed=0.5, duration=1.0)
+            rbt.jog_l("WRF", "X", speed=0.5, duration=1.0)
         """
         ...
 
     # -- Synchronization ----------------------------------------------------
 
     @abstractmethod
-    async def wait_motion_complete(
+    async def wait_motion(
         self,
         timeout: float = 10.0,
         **kwargs: Any,
@@ -295,12 +295,12 @@ class RobotClient(ABC):
         Category: Synchronization
 
         Example:
-            rbt.wait_motion_complete()
+            rbt.wait_motion()
         """
         ...
 
     @abstractmethod
-    async def wait_command_complete(
+    async def wait_command(
         self,
         command_index: int,
         timeout: float = 10.0,
@@ -310,11 +310,11 @@ class RobotClient(ABC):
         Category: Synchronization
 
         Example:
-            rbt.wait_command_complete(<index>)
+            rbt.wait_command(<index>)
         """
         ...
 
-    async def wait_for_status(
+    async def wait_status(
         self,
         predicate: Callable[[StatusBuffer], bool],
         timeout: float = 5.0,
@@ -322,7 +322,7 @@ class RobotClient(ABC):
         """Block until *predicate* returns True for a status snapshot."""
         raise NotImplementedError
 
-    async def wait_for_checkpoint(
+    async def wait_checkpoint(
         self,
         label: str,
         timeout: float = 30.0,
@@ -354,23 +354,23 @@ class RobotClient(ABC):
         """
         ...
 
-    async def simulator_on(self) -> int:
-        """Enable simulator mode.
+    async def simulator(self, enabled: bool) -> int:
+        """Enable or disable simulator mode.
 
         Category: Control
 
         Example:
-            rbt.simulator_on()
+            rbt.simulator(True)
         """
         raise NotImplementedError
 
-    async def simulator_off(self) -> int:
-        """Disable simulator mode.
+    async def is_simulator(self) -> bool:
+        """Query whether simulator mode is active.
 
-        Category: Control
+        Category: Query
 
         Example:
-            rbt.simulator_off()
+            active = rbt.is_simulator()
         """
         raise NotImplementedError
 
@@ -389,126 +389,172 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def set_freedrive(self, enabled: bool) -> int:
+    async def freedrive(self, enabled: bool) -> int:
         """Enable or disable freedrive / teach mode."""
+        raise NotImplementedError
+
+    async def is_freedrive(self) -> bool:
+        """Query whether freedrive / teach mode is active."""
         raise NotImplementedError
 
     # -- Queries (required) -------------------------------------------------
 
     @abstractmethod
-    async def get_angles(self) -> list[float] | None:
-        """Get current joint angles in degrees.
+    async def angles(self) -> list[float] | None:
+        """Current joint angles in degrees.
 
         Category: Query
 
         Example:
-            angles = rbt.get_angles()
+            angles = rbt.angles()
         """
         ...
 
     @abstractmethod
-    async def get_pose(self, frame: Frame = "WRF") -> list[float] | None:
-        """Get current pose as flattened 4x4 matrix.
+    async def pose(self, frame: Frame = "WRF") -> list[float] | None:
+        """Current TCP pose as [x, y, z, rx, ry, rz] in mm and degrees.
 
         Category: Query
 
         Example:
-            pose = rbt.get_pose()
-        """
-        ...
-
-    @abstractmethod
-    async def get_pose_rpy(self) -> list[float] | None:
-        """Get current pose as [x, y, z, rx, ry, rz].
-
-        Category: Query
-
-        Example:
-            pose = rbt.get_pose_rpy()
+            pose = rbt.pose()
         """
         ...
 
     # -- Queries (optional) -------------------------------------------------
 
-    async def get_speeds(self) -> list[float] | None:
-        """Get current joint speeds.
+    async def joint_speeds(self) -> list[float] | None:
+        """Current joint velocities.
 
         Category: Query
 
         Example:
-            speeds = rbt.get_speeds()
+            speeds = rbt.joint_speeds()
         """
         raise NotImplementedError
 
-    async def get_io(self) -> list[int] | None:
-        """Get digital I/O state.
+    async def io(self) -> list[int] | None:
+        """Digital I/O state.
 
         Category: Query
 
         Example:
-            io = rbt.get_io()
+            io = rbt.io()
         """
         raise NotImplementedError
 
-    async def get_status(self) -> object | None:
-        """Get aggregate status snapshot.
+    async def status(self) -> object | None:
+        """Aggregate status snapshot.
 
         Category: Query
 
         Example:
-            status = rbt.get_status()
+            status = rbt.status()
         """
         raise NotImplementedError
 
-    async def get_queue(self) -> list[str] | None:
-        """Get queued command list.
+    async def queue(self) -> list[str] | None:
+        """Queued command list.
 
         Category: Query
 
         Example:
-            queue = rbt.get_queue()
+            queue = rbt.queue()
         """
         raise NotImplementedError
 
-    async def get_tool(self) -> ToolResult | None:
-        """Get current tool and available tools.
+    async def tools(self) -> ToolResult | None:
+        """Current tool and available tools.
 
         Category: Query
 
         Example:
-            tool = rbt.get_tool()
+            tools = rbt.tools()
+        """
+        raise NotImplementedError
+
+    async def activity(self) -> ActivityResult | None:
+        """What the robot is currently doing.
+
+        Returns state (idle/executing/error), current command name,
+        parameters, and error description if applicable.
+
+        Category: Query
+
+        Example:
+            act = rbt.activity()
+        """
+        raise NotImplementedError
+
+    async def reachable(self) -> object | None:
+        """Remaining freedom of movement per joint/axis before hitting limits.
+
+        Category: Query
+
+        Example:
+            en = rbt.reachable()
+        """
+        raise NotImplementedError
+
+    async def error(self) -> object | None:
+        """Current error state, or None if no error.
+
+        Category: Query
+
+        Example:
+            err = rbt.error()
+        """
+        raise NotImplementedError
+
+    async def profile(self) -> str | None:
+        """Current motion profile name.
+
+        Category: Query
+
+        Example:
+            profile = rbt.profile()
+        """
+        raise NotImplementedError
+
+    async def tcp_speed(self) -> float | None:
+        """TCP linear velocity in mm/s.
+
+        Category: Query
+
+        Example:
+            speed = rbt.tcp_speed()
         """
         raise NotImplementedError
 
     # -- Configuration ------------------------------------------------------
 
-    async def set_serial_port(self, port_str: str) -> int:
-        """Set the serial port for hardware communication.
+    async def connect_hardware(self, port_str: str) -> int:
+        """Connect to robot hardware via serial port.
 
         Category: Configuration
 
         Example:
-            rbt.set_serial_port("/dev/ttyUSB0")
+            rbt.connect_hardware("/dev/ttyUSB0")
         """
         raise NotImplementedError
 
-    async def set_profile(self, profile: str) -> int:
+    async def select_profile(self, profile: str) -> int:
         """Set the motion profile (e.g. ``"TOPPRA"``).
 
         Category: Configuration
 
         Example:
-            rbt.set_profile("TOPPRA")
+            rbt.select_profile("TOPPRA")
         """
         raise NotImplementedError
 
-    async def set_tool(self, tool_name: str, variant_key: str = "") -> int:
+    async def select_tool(self, tool_name: str, variant_key: str = "") -> int:
         """Set the active end-effector tool on the controller.
 
         Category: Configuration
 
         Example:
-            rbt.set_tool("PNEUMATIC")
+            rbt.select_tool("PNEUMATIC")
         """
         raise NotImplementedError
 
@@ -522,13 +568,13 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def set_io(self, index: int, value: int) -> int:
+    async def write_io(self, index: int, value: int) -> int:
         """Set digital output by logical index (0 = first output pin).
 
         Category: I/O
 
         Example:
-            rbt.set_io(0, 1)   # Set first output HIGH
+            rbt.write_io(0, 1)   # Set first output HIGH
         """
         raise NotImplementedError
 

@@ -380,6 +380,14 @@ class ToolSpec(ABC):
         """
         raise NotImplementedError(f"Tool '{self.key}' does not support action_r")
 
+    async def status(self) -> ToolStatus:
+        """Query current tool status from the controller.
+
+        Returns the live tool status (state, engaged, positions, channels).
+        Only works on client-bound tools — raises ``RuntimeError`` if unbound.
+        """
+        raise NotImplementedError
+
 
 # ---------------------------------------------------------------------------
 # Gripper hierarchy — tools own their control methods

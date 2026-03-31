@@ -16,17 +16,17 @@ class DryRunClient(Protocol):
     returns a ``DryRunResult`` containing the TCP trajectory and final
     joint state.
 
-    Required methods: ``home()``, ``moveJ()``, ``moveL()``,
-    ``get_angles()``, ``get_pose()``, ``flush()``.
+    Required methods: ``home()``, ``move_j()``, ``move_l()``,
+    ``angles()``, ``pose()``, ``flush()``.
     """
 
     # -- Required motion commands -------------------------------------------
 
     def home(self, **kwargs: Any) -> DryRunResult | None: ...
 
-    def moveJ(
+    def move_j(
         self,
-        target: list[float],
+        angles: list[float],
         *,
         duration: float = 0.0,
         speed: float = 0.0,
@@ -34,7 +34,7 @@ class DryRunClient(Protocol):
         **kwargs: Any,
     ) -> DryRunResult | None: ...
 
-    def moveL(
+    def move_l(
         self,
         pose: list[float],
         *,
@@ -46,9 +46,9 @@ class DryRunClient(Protocol):
 
     # -- Required queries ---------------------------------------------------
 
-    def get_angles(self) -> list[float]: ...
+    def angles(self) -> list[float]: ...
 
-    def get_pose(self) -> list[float]: ...
+    def pose(self) -> list[float]: ...
 
     # -- Required tool access -----------------------------------------------
 

@@ -5,6 +5,11 @@ from importlib.metadata import version as _get_version
 __version__ = _get_version("waldoctl")
 
 from waldoctl.client import RobotClient
+from waldoctl.discovery import (
+    available_backends,
+    list_backends,
+    load_robot_class,
+)
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import (
     CartesianKinodynamicLimits,
@@ -17,7 +22,13 @@ from waldoctl.joints import (
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
-from waldoctl.status import ActionState, PingResult, StatusBuffer, ToolResult
+from waldoctl.status import (
+    ActionState,
+    ActivityResult,
+    PingResult,
+    StatusBuffer,
+    ToolResult,
+)
 from waldoctl.types import Axis, Frame
 from waldoctl.tools import (
     ActivationType,
@@ -63,6 +74,7 @@ __all__ = [
     "PingResult",
     "ToolResult",
     "ActionState",
+    "ActivityResult",
     # Tools (enums + ABCs)
     "ToolType",
     "GripperType",
@@ -80,6 +92,10 @@ __all__ = [
     # Type aliases
     "Frame",
     "Axis",
+    # Discovery
+    "available_backends",
+    "list_backends",
+    "load_robot_class",
     # Version
     "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)

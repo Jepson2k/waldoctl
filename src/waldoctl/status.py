@@ -54,6 +54,22 @@ class StatusBuffer(Protocol):
     """Label of the last checkpoint reached (empty if none)."""
     tcp_speed: float
     """TCP linear velocity in mm/s."""
+    simulator_active: bool
+    """Whether the controller is in simulator mode."""
+
+
+@dataclass
+class ActivityResult:
+    """What the robot is currently doing."""
+
+    state: ActionState
+    """IDLE, EXECUTING, or ERROR."""
+    command: str
+    """Name of the current command (empty if idle)."""
+    params: str
+    """Brief serialization of current command parameters."""
+    error: str
+    """Error description (empty if no error)."""
 
 
 @dataclass
