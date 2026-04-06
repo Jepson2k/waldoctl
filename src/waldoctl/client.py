@@ -66,7 +66,7 @@ class RobotClient(ABC):
     @abstractmethod
     async def move_j(
         self,
-        angles: list[float],
+        angles: list[float] | None = None,
         *,
         pose: list[float] | None = None,
         duration: float = 0.0,
@@ -555,6 +555,30 @@ class RobotClient(ABC):
 
         Example:
             rbt.select_tool("PNEUMATIC")
+        """
+        raise NotImplementedError
+
+    async def set_tcp_offset(self, x: float = 0, y: float = 0, z: float = 0) -> int:
+        """Set TCP offset in mm, composed on top of the current tool transform.
+
+        The offset shifts the effective TCP point in the tool's local frame.
+        Subsequent motion (especially TRF relative moves) will use the new TCP.
+        Call with (0, 0, 0) to reset. Changing tools resets the offset.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_tcp_offset(0, 0, -190)
+        """
+        raise NotImplementedError
+
+    async def tcp_offset(self) -> list[float]:
+        """Query current TCP offset in mm [x, y, z].
+
+        Category: Configuration
+
+        Example:
+            offset = rbt.tcp_offset()
         """
         raise NotImplementedError
 

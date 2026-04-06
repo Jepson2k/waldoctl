@@ -417,11 +417,23 @@ class GripperTool(ToolSpec):
 
     @abstractmethod
     async def set_position(self, position: float, **kwargs: float | int) -> int:
-        """Set gripper position. 0.0 = fully open, 1.0 = fully closed."""
+        """Set gripper position. 0.0 = fully open, 1.0 = fully closed.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.set_position(0.5)
+        """
         ...
 
     async def calibrate(self, **kwargs: object) -> int:
-        """Calibrate the gripper. Not all grippers support this."""
+        """Calibrate the gripper. Not all grippers support this.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.calibrate()
+        """
         raise NotImplementedError
 
     def is_open(self, position: float) -> bool:
@@ -437,12 +449,24 @@ class GripperTool(ToolSpec):
 
     @abstractmethod
     async def open(self, **kwargs: float | int) -> int:
-        """Open the gripper."""
+        """Open the gripper.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.open()
+        """
         ...
 
     @abstractmethod
     async def close(self, **kwargs: float | int) -> int:
-        """Close the gripper."""
+        """Close the gripper.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.close()
+        """
         ...
 
 

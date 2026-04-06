@@ -26,8 +26,9 @@ class DryRunClient(Protocol):
 
     def move_j(
         self,
-        angles: list[float],
+        angles: list[float] | None = None,
         *,
+        pose: list[float] | None = None,
         duration: float = 0.0,
         speed: float = 0.0,
         accel: float = 1.0,
