@@ -72,9 +72,10 @@ class RobotClient(ABC):
         duration: float = 0.0,
         speed: float = 0.0,
         accel: float = 1.0,
-        r: float = 0,
+        r: float = 0.0,
         rel: bool = False,
         wait: bool = False,
+        timeout: float = 10.0,
         **wait_kwargs: Any,
     ) -> int:
         """Joint-space move. *angles*: joint angles in degrees.
