@@ -195,6 +195,12 @@ class SyncElectricGripperTool(ElectricGripperTool):
     def calibrate(self, **kwargs: object) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.calibrate(**kwargs))
 
+    def open(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.open(**kwargs))
+
+    def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.close(**kwargs))
+
 
 # ---------------------------------------------------------------------------
 # Dispatch helper
