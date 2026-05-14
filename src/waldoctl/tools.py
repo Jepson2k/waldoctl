@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 from typing import Any, Union
 
 from nicegui import binding
 
 
-class ToolType(Enum):
-    """Tool categories the web commander has GUI support for."""
+class ToolType(StrEnum):
+    """Tool categories the web commander has GUI support for.
+
+    ``StrEnum`` so third-party tools can pass arbitrary category strings
+    via ``waldoctl.tools`` entry points while ``ToolType.GRIPPER == "gripper"``
+    keeps existing equality checks working.
+    """
 
     NONE = "none"
     """Bare flange or passive tool — TCP offset + 3D visual only, no panel."""
@@ -308,7 +313,7 @@ class ToolSpec(ABC):
         *,
         key: str,
         display_name: str,
-        tool_type: ToolType,
+        tool_type: str | ToolType,
         tcp_origin: tuple[float, float, float],
         tcp_rpy: tuple[float, float, float],
         description: str = "",
@@ -329,7 +334,7 @@ class ToolSpec(ABC):
     ) -> None:
         self._key = key
         self._display_name = display_name
-        self._tool_type = tool_type
+        self._tool_type = str(tool_type)
         self._tcp_origin = tcp_origin
         self._tcp_rpy = tcp_rpy
         self._description = description
@@ -360,8 +365,14 @@ class ToolSpec(ABC):
         return self._display_name
 
     @property
-    def tool_type(self) -> ToolType:
-        """GUI category — determines which panel (if any) is shown."""
+    def tool_type(self) -> str:
+        """GUI category — determines which panel (if any) is shown.
+
+        Returns a ``str`` so third-party tools can introduce new categories
+        beyond the built-in :class:`ToolType` values.  Comparison with
+        ``ToolType.GRIPPER`` etc. still works because ``ToolType`` is a
+        ``StrEnum``.
+        """
         return self._tool_type
 
     @property
@@ -695,6 +706,10 @@ class ToolsSpec(ABC):
         ...
 
     @abstractmethod
-    def by_type(self, tool_type: ToolType) -> tuple[ToolSpec, ...]:
-        """Return all tools matching the given category."""
+    def by_type(self, tool_type: str | ToolType) -> tuple[ToolSpec, ...]:
+        """Return all tools matching the given category.
+
+        Accepts a plain ``str`` so third-party tool categories work without
+        extending the built-in :class:`ToolType` enum.
+        """
         ...
