@@ -7,10 +7,16 @@ __version__ = _get_version("waldoctl")
 from waldoctl.client import RobotClient
 from waldoctl.discovery import (
     available_backends,
+    iter_plugin_panels,
     list_backends,
+    list_panels,
+    list_tool_specs,
+    load_panel_class,
     load_robot_class,
+    load_tool_spec_class,
 )
 from waldoctl.dry_run import DryRunClient
+from waldoctl.panels import Panel, PanelContext, PanelSlot
 from waldoctl.joints import (
     CartesianKinodynamicLimits,
     HomePosition,
@@ -96,6 +102,15 @@ __all__ = [
     "available_backends",
     "list_backends",
     "load_robot_class",
+    "list_panels",
+    "load_panel_class",
+    "iter_plugin_panels",
+    "list_tool_specs",
+    "load_tool_spec_class",
+    # Plugin panels
+    "Panel",
+    "PanelSlot",
+    "PanelContext",
     # Version
     "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
