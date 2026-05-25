@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import Any, Union
 
+from nicegui import binding
+
 
 class ToolType(Enum):
     """Tool categories the web commander has GUI support for."""
@@ -180,19 +182,31 @@ class ChannelDescriptor:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@binding.bindable_dataclass
 class ToolStatus:
-    """Universal end-of-arm tool status.
+    """Universal end-of-arm tool status — the bindable surface exposed at
+    ``commander.status.tool``.
 
-    Populated by the controller at the status broadcast rate (50 Hz).
-    Consumers combine ``positions[i]`` with ``ToolSpec.motions[i]`` to
-    reconstruct the physical state of each DOF without knowing the tool type.
-    Tool-specific process data is in ``channels``, described by the tool's
-    ``channel_descriptors``.
+    Populated by the host application's status loop at the controller's
+    broadcast rate. Consumers combine ``positions[i]`` with
+    ``ToolSpec.motions[i]`` to reconstruct the physical state of each DOF
+    without knowing the tool type. Tool-specific process data is in
+    ``channels``, described by the tool's ``channel_descriptors``.
+
+    Decorated with ``@bindable_dataclass`` so UI elements can bind to leaf
+    fields directly: ``bind_text_from(commander.status.tool, "key")``,
+    ``bind_value_from(commander.status.tool, "engaged")``, etc. Field
+    reassignment by the status loop fires bindings synchronously.
+
+    **Mutate-in-place invariant**: this is a sub-object of ``RobotStatus`` —
+    its fields are written individually by the status loop. The instance
+    itself is never swapped.
     """
 
     key: str = "NONE"
     """Attached tool key."""
+    variant_key: str = ""
+    """Active variant within the attached tool (empty if the tool has no variants)."""
     state: ToolState = ToolState.OFF
     """Tool operational state."""
     engaged: bool = False
@@ -206,6 +220,72 @@ class ToolStatus:
     channels: tuple[float, ...] = ()
     """Tool-specific process data, described by ChannelDescriptor."""
 
+    @property
+    def position(self) -> float:
+        """Primary DOF position (``positions[0]`` if any, else 0.0).
+
+        Convenience accessor for the common single-DOF case (gripper open/
+        close, etc.). Not bindable — bind to ``positions`` and use a backward
+        function if reactive display of the primary value is needed.
+        """
+        return self.positions[0] if self.positions else 0.0
+
+    @property
+    def current(self) -> float:
+        """Primary process-channel value (``channels[0]`` if any, else 0.0).
+
+        Convenience accessor for the common case (e.g. gripper motor current).
+        Not bindable — bind to ``channels`` with a backward function for
+        reactive display.
+        """
+        return self.channels[0] if self.channels else 0.0
+
+
+# ---------------------------------------------------------------------------
+# Camera capability — optional camera attached to a tool
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CameraSpec:
+    """Default camera attached to a tool.
+
+    The NONE (bare-flange) tool may carry one to act as a workspace
+    observer; otherwise this represents a tool-mounted vision system. Users
+    can override individual fields per session via :class:`ToolRuntimeSettings`.
+    """
+
+    device: int | str = -1
+    """OpenCV device index (``int``) or v4l2 device name (``str``).
+    ``-1`` means no camera."""
+    stream_url: str = "/tool/camera/stream"
+    """HTTP endpoint serving an MJPEG stream of the camera feed."""
+    width: int = 0
+    """Frame width; ``0`` lets the camera service auto-detect."""
+    height: int = 0
+    """Frame height; ``0`` lets the camera service auto-detect."""
+
+
+# ---------------------------------------------------------------------------
+# Tool runtime settings — user-tweakable overrides on top of the immutable spec
+# ---------------------------------------------------------------------------
+
+
+@binding.bindable_dataclass
+class ToolRuntimeSettings:
+    """User-tweakable overrides applied on top of a tool's immutable spec.
+
+    Mutable and bindable. Persisted by the host application to per-tool keys
+    in :attr:`nicegui.app.storage.general` so users can switch devices /
+    settings without reinstalling tools. Tools that need additional override
+    fields subclass this and override :meth:`ToolSpec._make_runtime_settings`.
+
+    Default: ``camera_device = None`` means "use the spec's
+    ``camera_spec.device``". Setting it to a valid device id overrides.
+    """
+
+    camera_device: int | str | None = None
+
 
 # ---------------------------------------------------------------------------
 # Tool specification hierarchy
@@ -218,9 +298,9 @@ class ToolSpec(ABC):
     ``key`` is unique per tool instance (e.g. ``"pneumatic_left"``).
     ``tool_type`` determines which GUI panel category the tool belongs to.
 
-    All tool configuration is immutable — fields are stored privately
-    and exposed via read-only properties.  Action methods (e.g. toggle)
-    are abstract — backends provide concrete implementations.
+    Immutable spec fields are stored privately and exposed via read-only
+    properties. :attr:`runtime_settings` is the mutable, bindable layer for
+    user overrides (currently camera device; tools can extend it).
     """
 
     def __init__(
@@ -245,6 +325,7 @@ class ToolSpec(ABC):
         action_r_labels: tuple[str, str] | None = None,
         action_r_icons: tuple[str, str] | None = None,
         action_r_mode: ToggleMode = ToggleMode.TRIGGER,
+        camera_spec: CameraSpec | None = None,
     ) -> None:
         self._key = key
         self._display_name = display_name
@@ -265,6 +346,8 @@ class ToolSpec(ABC):
         self._action_r_labels = action_r_labels
         self._action_r_icons = action_r_icons
         self._action_r_mode = action_r_mode
+        self._camera_spec = camera_spec
+        self._runtime_settings = self._make_runtime_settings()
 
     @property
     def key(self) -> str:
@@ -365,6 +448,45 @@ class ToolSpec(ABC):
     def channel_descriptors(self) -> tuple[ChannelDescriptor, ...]:
         """Descriptors for tool-specific process data channels."""
         return ()
+
+    @property
+    def camera_spec(self) -> CameraSpec | None:
+        """Spec-time default camera attached to this tool, if any.
+
+        Returns ``None`` when the tool has no camera. The user can still
+        override via :attr:`runtime_settings`; consumers should resolve the
+        effective device via :attr:`effective_camera_device`.
+        """
+        return self._camera_spec
+
+    @property
+    def runtime_settings(self) -> "ToolRuntimeSettings":
+        """User-tweakable runtime overrides for this tool.
+
+        Bindable. The host application persists these per tool key to
+        :attr:`nicegui.app.storage.general` so user choices survive restarts.
+        """
+        return self._runtime_settings
+
+    def _make_runtime_settings(self) -> "ToolRuntimeSettings":
+        """Construct the per-tool runtime-settings instance.
+
+        Override in subclasses that need additional override fields beyond
+        ``camera_device``. The default returns a plain :class:`ToolRuntimeSettings`.
+        """
+        return ToolRuntimeSettings()
+
+    @property
+    def effective_camera_device(self) -> int | str | None:
+        """Resolved camera device after applying any runtime override.
+
+        Resolution order: ``runtime_settings.camera_device`` if set, else
+        ``camera_spec.device`` if a ``camera_spec`` exists, else ``None``.
+        """
+        override = self._runtime_settings.camera_device
+        if override is not None:
+            return override
+        return self._camera_spec.device if self._camera_spec else None
 
     async def action_l(self, engaged: bool) -> None:
         """Left action button handler.
