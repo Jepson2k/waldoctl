@@ -109,6 +109,13 @@ class Playback(ChangeNotifierMixin):
 
     Mutated continuously during play / pause / step / scrub. Hosted as a
     sub-object on :class:`DryRun`; never reassigned.
+
+    The ``executing_step_*`` fields track step lifecycle for running scripts:
+    when a user script is executing, it advances through waypoints and the
+    host application updates these so playback listeners can distinguish
+    "step N just started" from "step N just completed". Step-aware consumers
+    subscribe via :meth:`ChangeNotifierMixin.add_step_listener` for the
+    high-frequency channel.
     """
 
     is_playing: bool = False
@@ -124,6 +131,13 @@ class Playback(ChangeNotifierMixin):
     """Playback rate multiplier (1.0 = realtime)."""
     active_cursor_line: int = 0
     """1-indexed editor line under the cursor (0 = none)."""
+    executing_step_index: int = -1
+    """Index of the segment the running script is currently executing
+    (-1 = idle). Updated by the script-execution lifecycle, not by playback."""
+    executing_step_at_end: bool = False
+    """False = at start of segment; True = at end. Together with
+    ``executing_step_index`` this distinguishes "started step N" from
+    "completed step N" for step-channel listeners."""
 
 
 # ---------------------------------------------------------------------------

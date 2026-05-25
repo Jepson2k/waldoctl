@@ -188,6 +188,55 @@ def test_change_listener_dedup_on_add():
     assert calls == [1]
 
 
+def test_step_listener_separate_channel():
+    """Step listeners fire only on notify_step_changed, not on notify_changed."""
+    a = Action()
+    change_calls: list[int] = []
+    step_calls: list[int] = []
+    a.add_change_listener(lambda: change_calls.append(1))
+    a.add_step_listener(lambda: step_calls.append(1))
+    a.notify_changed()
+    assert change_calls == [1]
+    assert step_calls == []
+    a.notify_step_changed()
+    assert change_calls == [1]
+    assert step_calls == [1]
+
+
+def test_step_listener_removal():
+    a = Action()
+    calls: list[int] = []
+
+    def cb():
+        calls.append(1)
+
+    a.add_step_listener(cb)
+    a.notify_step_changed()
+    a.remove_step_listener(cb)
+    a.notify_step_changed()
+    assert calls == [1]
+
+
+def test_remove_listener_works_with_bound_methods():
+    """Bound methods compare equal by (instance, func) but fail `is` — the
+    remove path uses ``!=`` so bound-method removal works."""
+
+    class Observer:
+        def __init__(self):
+            self.calls = 0
+
+        def on_change(self):
+            self.calls += 1
+
+    a = Action()
+    o = Observer()
+    a.add_change_listener(o.on_change)
+    a.notify_changed()
+    a.remove_change_listener(o.on_change)
+    a.notify_changed()
+    assert o.calls == 1
+
+
 # ---------------------------------------------------------------------------
 # AngleArray
 # ---------------------------------------------------------------------------
