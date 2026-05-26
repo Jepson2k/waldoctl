@@ -271,8 +271,18 @@ class ProgramTabs(ChangeNotifierMixin):
         one if a program with this path is already open)."""
         raise NotImplementedError("host application wires programs.open")
 
-    def new(self, source: str = "") -> Program:
-        """Create a fresh unsaved program with the given starter source."""
+    def new(
+        self,
+        source: str = "",
+        filename: str = "untitled.py",
+        file_path: str | None = None,
+    ) -> Program:
+        """Create a fresh program with the given starter source.
+
+        ``filename`` is the display name. ``file_path`` is the on-disk path if
+        the new program represents an existing file being opened; ``None`` for
+        a pristine unsaved program.
+        """
         raise NotImplementedError("host application wires programs.new")
 
     def close(self, id: str) -> None:
