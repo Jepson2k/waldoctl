@@ -145,7 +145,19 @@ class Playback(ChangeNotifierMixin):
 # ---------------------------------------------------------------------------
 
 
-@binding.bindable_dataclass
+@binding.bindable_dataclass(
+    bindable_fields=[
+        "targets",
+        "path_segments",
+        "tool_actions",
+        "tool_selections",
+        "total_steps",
+        "total_duration",
+        "final_joints_rad",
+        "playback",
+        "paths_visible",
+    ]
+)
 class DryRun(ChangeNotifierMixin):
     """Per-program dry-run state — simulation result + playback control.
 
@@ -158,6 +170,12 @@ class DryRun(ChangeNotifierMixin):
     ``set_speed``) delegate to the host application's playback controller
     (injected at construction). Subclassing or direct call-site dispatch is
     not part of the public contract.
+
+    ``last_sim_joints_deg`` is intentionally excluded from the bindable
+    field set: it holds a numpy array, and NiceGUI's ``BindableProperty``
+    setter does ``old != new`` which on arrays returns an element-wise
+    array (not a scalar bool), raising ``ValueError`` on assignment. The
+    field is still a normal dataclass attribute; it just isn't reactive.
     """
 
     # Result fields — assigned wholesale by ``trigger``.
