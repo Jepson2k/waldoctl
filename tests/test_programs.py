@@ -111,15 +111,85 @@ def test_recording_stubs_raise():
             fn()
 
 
-def test_edit_flow_stubs_raise_with_pr4_hint():
-    ef = EditFlow()
-    assert ef.pending == []
-    with pytest.raises(NotImplementedError, match="ships in PR 4"):
-        ef.propose("--- a\n+++ b\n")
-    with pytest.raises(NotImplementedError, match="ships in PR 4"):
-        ef.approve(EditId("x"))
-    with pytest.raises(NotImplementedError, match="ships in PR 4"):
-        ef.reject(EditId("x"))
+def _diff_replace_line(line_no_1indexed: int, old: str, new: str) -> str:
+    """Build a tiny single-line replacement diff for tests."""
+    return f"@@ -{line_no_1indexed},1 +{line_no_1indexed},1 @@\n-{old}\n+{new}\n"
+
+
+def test_edit_flow_propose_then_approve_mutates_source():
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"), "rename b to B")
+    assert len(p.edits.pending) == 1
+    pe = p.edits.pending[0]
+    assert pe.id == edit_id
+    assert pe.description == "rename b to B"
+    assert pe.proposed_at > 0
+    p.edits.approve(edit_id)
+    assert p.source == "a\nB\nc\n"
+    assert p.edits.pending == []
+
+
+def test_edit_flow_propose_then_reject_leaves_source_intact():
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    p.edits.reject(edit_id)
+    assert p.source == "a\nb\nc\n"
+    assert p.edits.pending == []
+
+
+def test_edit_flow_drifted_context_raises_value_error_on_approve():
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    p.source = "a\nQ\nc\n"  # human edited under the LLM
+    with pytest.raises(ValueError, match="mismatch"):
+        p.edits.approve(edit_id)
+    # Pending list is untouched on failure so the UI can show "stale" state.
+    assert len(p.edits.pending) == 1
+
+
+def test_edit_flow_unknown_id_raises_key_error():
+    p = Program(source="a\nb\nc\n")
+    with pytest.raises(KeyError):
+        p.edits.approve(EditId("nope"))
+    with pytest.raises(KeyError):
+        p.edits.reject(EditId("nope"))
+
+
+def test_edit_flow_double_approve_raises_key_error():
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    p.edits.approve(edit_id)
+    with pytest.raises(KeyError):
+        p.edits.approve(edit_id)
+
+
+def test_edit_flow_propose_validates_diff_against_current_source():
+    p = Program(source="a\nb\nc\n")
+    # context line says "X" but source has "a" — should fail at propose,
+    # not silently queue a bad edit.
+    with pytest.raises(ValueError, match="mismatch"):
+        p.edits.propose("@@ -1,1 +1,1 @@\n-X\n+x\n")
+    assert p.edits.pending == []
+
+
+def test_edit_flow_multi_hunk_apply():
+    p = Program(source="a\nb\nc\nd\ne\n")
+    diff = "@@ -1,1 +1,1 @@\n-a\n+A\n@@ -4,1 +4,1 @@\n-d\n+D\n"
+    edit_id = p.edits.propose(diff)
+    p.edits.approve(edit_id)
+    assert p.source == "A\nb\nc\nD\ne\n"
+
+
+def test_edit_flow_pending_reassignment_fires_binding():
+    """``pending`` is reassigned wholesale on propose/approve/reject so
+    bindings to ``EditFlow.pending`` fire on each change."""
+    p = Program(source="a\nb\nc\n")
+    t = _Target()
+    binding.bind_from(t, "value", p.edits, "pending", backward=lambda lst: len(lst))
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    assert t.value == 1
+    p.edits.approve(edit_id)
+    assert t.value == 0
 
 
 def test_recorded_program_is_frozen():

@@ -94,6 +94,32 @@ class PluginConfig(ChangeNotifierMixin):
     """Plugin ids the user has turned off. Panel discovery skips these."""
 
 
+@binding.bindable_dataclass
+class McpSettings(ChangeNotifierMixin):
+    """MCP (Model Context Protocol) server configuration.
+
+    The host application starts a FastMCP server when ``enabled`` is True,
+    exposing the public ``commander.*`` surface as MCP tools so an LLM
+    client (Claude Desktop, etc.) can drive the robot. ``enabled``,
+    ``host``, ``port``, and ``auth_token`` bind at server start —
+    changing them needs a reload. ``allow_motion`` is consulted on every
+    motion tool call so the user can flip it live without restart.
+    """
+
+    enabled: bool = False
+    """Off by default — opting in surfaces the public API to outside clients."""
+    host: str = "127.0.0.1"
+    """Loopback by default so the server isn't network-reachable without
+    explicit reconfiguration."""
+    port: int = 7400
+    """HTTP/SSE port the FastMCP server listens on."""
+    auth_token: str | None = None
+    """Optional bearer token; clients must present it on every request."""
+    allow_motion: bool = True
+    """When False, motion tools (``move_j``, ``jog_*``, ``home``…) refuse
+    cleanly. Read state and code edits are unaffected."""
+
+
 # ---------------------------------------------------------------------------
 # Settings — the locator's `settings` attribute
 # ---------------------------------------------------------------------------
@@ -115,3 +141,5 @@ class Settings(ChangeNotifierMixin):
     gripper: GripperSettings = field(default_factory=GripperSettings)
     view: ViewSettings = field(default_factory=ViewSettings)
     plugins: PluginConfig = field(default_factory=PluginConfig)
+    mcp: McpSettings = field(default_factory=McpSettings)
+    simulator_active: bool = False

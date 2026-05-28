@@ -59,6 +59,7 @@ from waldoctl.settings import (
     EnvelopeMode,
     GripperSettings,
     JogSettings,
+    McpSettings,
     PluginConfig,
     Settings,
     ViewSettings,
@@ -237,5 +238,6 @@ __all__ = [
     "GripperSettings",
     "ViewSettings",
     "PluginConfig",
+    "McpSettings",
     "EnvelopeMode",
 ]
