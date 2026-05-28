@@ -28,6 +28,7 @@ from waldoctl.joints import (
     PositionLimits,
 )
 from waldoctl.programs import (
+    DiffHunk,
     EditFlow,
     EditId,
     Execution,
@@ -38,6 +39,7 @@ from waldoctl.programs import (
     ProgramTabs,
     RecordedProgram,
     Recording,
+    parse_unified_diff,
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
@@ -225,6 +227,8 @@ __all__ = [
     "EditFlow",
     "EditId",
     "PendingEdit",
+    "DiffHunk",
+    "parse_unified_diff",
     # Dry-run surface
     "DryRun",
     "Playback",

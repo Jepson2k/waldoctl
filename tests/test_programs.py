@@ -192,6 +192,23 @@ def test_edit_flow_pending_reassignment_fires_binding():
     assert t.value == 0
 
 
+def test_edit_flow_notify_changed_fires_on_lifecycle():
+    """``EditFlow`` fires its ChangeNotifierMixin channel on every
+    propose/approve/reject so the WC editor's diff-overlay refresher
+    re-renders without needing per-field bindings."""
+    p = Program(source="a\nb\nc\n")
+    calls: list[str] = []
+    p.edits.add_change_listener(lambda: calls.append("x"))
+    edit_id = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    assert calls == ["x"]
+    p.edits.reject(edit_id)
+    assert calls == ["x", "x"]
+    # Approve also fires (via the propose+approve roundtrip).
+    edit_id2 = p.edits.propose(_diff_replace_line(2, "b", "B"))
+    p.edits.approve(edit_id2)
+    assert calls == ["x", "x", "x", "x"]
+
+
 def test_recorded_program_is_frozen():
     rp = RecordedProgram(source="rbt.home()", started_at=1.0, stopped_at=2.0)
     with pytest.raises(Exception):  # FrozenInstanceError on frozen slots dataclass

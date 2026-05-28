@@ -164,28 +164,35 @@ _HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 @dataclass(frozen=True, slots=True)
-class _Hunk:
-    """One unified-diff hunk parsed into structured form."""
+class DiffHunk:
+    """One unified-diff hunk parsed into structured form.
 
-    old_start: int  # 1-indexed line in the original source
-    body: tuple[tuple[str, str], ...]  # (op, content) where op in {' ', '-', '+'}
+    Exposed publicly so frontends can build per-hunk decorations (red
+    strikethrough on removals, green widget for additions) without
+    re-implementing the parser.
+    """
+
+    old_start: int
+    """1-indexed line in the original source."""
+    body: tuple[tuple[str, str], ...]
+    """``(op, content)`` per line; ``op`` is one of ``' '``, ``'-'``, ``'+'``."""
 
 
-def _parse_unified_diff(diff: str) -> list[_Hunk]:
+def parse_unified_diff(diff: str) -> list[DiffHunk]:
     """Parse unified-diff text into a list of hunks.
 
     Pre-hunk headers (``--- a/...``, ``+++ b/...``) and ``\\ No newline at
     end of file`` markers are ignored. We only consume what's between
     ``@@`` headers, so MCP-emitted diffs without file headers work.
     """
-    hunks: list[_Hunk] = []
+    hunks: list[DiffHunk] = []
     current_start: int | None = None
     current_body: list[tuple[str, str]] = []
     for line in diff.splitlines():
         m = _HUNK_HEADER.match(line)
         if m:
             if current_start is not None:
-                hunks.append(_Hunk(current_start, tuple(current_body)))
+                hunks.append(DiffHunk(current_start, tuple(current_body)))
             current_start = int(m.group(1))
             current_body = []
             continue
@@ -200,7 +207,7 @@ def _parse_unified_diff(diff: str) -> list[_Hunk]:
         else:
             raise ValueError(f"unrecognized diff line: {line!r}")
     if current_start is not None:
-        hunks.append(_Hunk(current_start, tuple(current_body)))
+        hunks.append(DiffHunk(current_start, tuple(current_body)))
     return hunks
 
 
@@ -211,7 +218,7 @@ def _apply_unified_diff(source: str, diff: str) -> str:
     source (drift since the diff was proposed), if a hunk extends past
     end-of-file, or if the diff is unparseable.
     """
-    hunks = _parse_unified_diff(diff)
+    hunks = parse_unified_diff(diff)
     if not hunks:
         return source
 
@@ -291,6 +298,7 @@ class EditFlow(ChangeNotifierMixin):
                 description=description,
             ),
         ]
+        self.notify_changed()
         return edit_id
 
     def approve(self, edit_id: EditId) -> None:
@@ -305,6 +313,7 @@ class EditFlow(ChangeNotifierMixin):
                 new_source = _apply_unified_diff(self._program.source, e.diff)
                 self._program.source = new_source
                 self.pending = [*self.pending[:i], *self.pending[i + 1 :]]
+                self.notify_changed()
                 return
         raise KeyError(edit_id)
 
@@ -313,6 +322,7 @@ class EditFlow(ChangeNotifierMixin):
         for i, e in enumerate(self.pending):
             if e.id == edit_id:
                 self.pending = [*self.pending[:i], *self.pending[i + 1 :]]
+                self.notify_changed()
                 return
         raise KeyError(edit_id)
 
