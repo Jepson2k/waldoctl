@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 
 import pytest
-from nicegui import binding
 
 from waldoctl import (
     DryRun,
@@ -20,10 +19,6 @@ from waldoctl import (
     RecordedProgram,
     Recording,
 )
-
-
-class _Target:
-    value: object = None
 
 
 # ---------------------------------------------------------------------------
@@ -74,17 +69,25 @@ def test_program_save_and_reload_stubs_raise():
 # ---------------------------------------------------------------------------
 
 
-def test_program_log_append_replaces_entries_for_binding():
-    """``append`` reassigns ``entries`` rather than mutating in place so
-    bindings on ``ProgramLog.entries`` fire on every line."""
+def test_program_log_append_notifies_listeners():
+    """``append`` / ``clear`` mutate ``entries`` in place (O(1) per line — a
+    script may emit thousands) and fire the change listener; consumers mirror
+    the log via ``add_change_listener`` rather than value-binding ``entries``."""
     log = ProgramLog()
-    t = _Target()
-    binding.bind_from(t, "value", log, "entries", backward=lambda lst: len(lst))
+    calls = 0
+
+    def _on_change() -> None:
+        nonlocal calls
+        calls += 1
+
+    log.add_change_listener(_on_change)
     log.append(LogEntry(timestamp=time.time(), stream="stdout", text="hi"))
     log.append(LogEntry(timestamp=time.time(), stream="stderr", text="oops"))
-    assert t.value == 2
+    assert [e.text for e in log.entries] == ["hi", "oops"]
+    assert calls == 2
     log.clear()
-    assert t.value == 0
+    assert log.entries == []
+    assert calls == 3
 
 
 # ---------------------------------------------------------------------------

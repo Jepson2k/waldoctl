@@ -39,19 +39,24 @@ class ProgramLog(ChangeNotifierMixin):
     """Per-program execution output.
 
     Entries are appended by the host application's script runner as the
-    program emits stdout / stderr. The list is replaced wholesale on
-    :meth:`append` so bindings to ``entries`` fire on each new line.
+    program emits stdout / stderr — potentially thousands of lines per run.
+    ``append`` / ``clear`` mutate ``entries`` in place and call
+    :meth:`notify_changed`, so each line is O(1); consumers that mirror the
+    log subscribe via ``add_change_listener`` (like
+    ``commander.status.action.history``) rather than value-binding ``entries``.
     """
 
     entries: list[LogEntry] = field(default_factory=list)
 
     def append(self, entry: LogEntry) -> None:
-        """Add a log entry; reassigns ``entries`` to fire bindings."""
-        self.entries = [*self.entries, entry]
+        """Add a log entry and notify listeners."""
+        self.entries.append(entry)
+        self.notify_changed()
 
     def clear(self) -> None:
-        """Drop all captured output."""
-        self.entries = []
+        """Drop all captured output and notify listeners."""
+        self.entries.clear()
+        self.notify_changed()
 
 
 # ---------------------------------------------------------------------------
