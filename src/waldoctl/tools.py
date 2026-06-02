@@ -506,7 +506,8 @@ class ToolSpec(ABC):
         """Query current tool status from the controller.
 
         Returns the live tool status (state, engaged, positions, channels).
-        Only works on client-bound tools — raises ``RuntimeError`` if unbound.
+        Abstract on the base ``ToolSpec``; client-bound tool subclasses
+        implement it against the controller.
         """
         raise NotImplementedError
 

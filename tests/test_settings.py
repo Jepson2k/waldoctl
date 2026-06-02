@@ -24,7 +24,6 @@ def test_settings_defaults_are_safe():
     assert isinstance(s.gripper, GripperSettings)
     assert isinstance(s.view, ViewSettings)
     assert isinstance(s.plugins, PluginConfig)
-    assert s.simulator_active is False
 
 
 def test_jog_settings_defaults():

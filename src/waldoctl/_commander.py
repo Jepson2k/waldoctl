@@ -2,9 +2,10 @@
 
 The host application (e.g. Waldo-Commander) instantiates this once at
 startup and registers it via :func:`waldoctl._set_commander`. Consumers
-reach it through ``from waldoctl import commander`` and use dotted access
-to the typed sub-handles (``commander.status.pose.x``,
-``commander.programs.active``, etc.).
+``import waldoctl`` and reach it through dotted access at call time
+(``waldoctl.commander.status.pose.x``, ``waldoctl.commander.programs.active``,
+etc.) — never ``from waldoctl import commander``, which resolves the locator
+at import time, before the host has registered it.
 """
 
 from __future__ import annotations

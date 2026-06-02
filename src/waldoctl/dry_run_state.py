@@ -1,13 +1,12 @@
 """Per-program dry-run state — simulation result + playback control.
 
 Module name is ``dry_run_state`` to avoid clashing with the existing
-``waldoctl.dry_run`` module (which hosts ``DryRunClient`` /
-``DryRunResultData``).
+``waldoctl.dry_run`` module (which hosts ``DryRunClient``).
 
 Each open program in ``commander.programs`` carries its own bindable
-``DryRun`` instance. ``DryRun.trigger()`` populates the result fields
-wholesale on each invocation; bindings to a list reference (e.g.
-``path_segments``) fire on reassignment. ``DryRun.playback`` is a nested
+``DryRun`` instance. The host application assigns the result fields (e.g.
+``path_segments``) wholesale when it runs a dry-run, so bindings to those
+list references fire on reassignment. ``DryRun.playback`` is a nested
 sub-object whose scalars mutate continuously during playback.
 
 **Mutate-in-place invariant**: ``dry_run.playback`` is constructed once and
@@ -155,21 +154,18 @@ class Playback(ChangeNotifierMixin):
         "total_duration",
         "final_joints_rad",
         "playback",
-        "paths_visible",
     ]
 )
 class DryRun(ChangeNotifierMixin):
     """Per-program dry-run state — simulation result + playback control.
 
-    The host application calls :meth:`trigger` to run a fresh dry-run; result
-    fields (``targets``, ``path_segments``, ``tool_actions``, etc.) are
-    reassigned wholesale, so bindings against those list references fire on
-    each new run.
+    The host application assigns the result fields (``targets``,
+    ``path_segments``, ``tool_actions``, etc.) wholesale when it runs a
+    dry-run, so bindings against those list references fire on each new run.
 
-    Lifecycle methods (``play`` / ``pause`` / ``step`` / ``scrub_to`` /
-    ``set_speed``) delegate to the host application's playback controller
-    (injected at construction). Subclassing or direct call-site dispatch is
-    not part of the public contract.
+    Playback is driven externally: the host's playback controller mutates the
+    ``playback`` sub-object's leaf fields in place. This class carries no
+    playback methods of its own.
 
     ``last_sim_joints_deg`` is intentionally excluded from the bindable
     field set: it holds a numpy array, and NiceGUI's ``BindableProperty``
@@ -178,7 +174,7 @@ class DryRun(ChangeNotifierMixin):
     field is still a normal dataclass attribute; it just isn't reactive.
     """
 
-    # Result fields — assigned wholesale by ``trigger``.
+    # Result fields — assigned wholesale by the host when it runs a dry-run.
     targets: list[ProgramTarget] = field(default_factory=list)
     path_segments: list[PathSegment] = field(default_factory=list)
     tool_actions: list[ToolAction] = field(default_factory=list)
@@ -192,6 +188,3 @@ class DryRun(ChangeNotifierMixin):
 
     # Playback sub-object — mutated in place during playback.
     playback: Playback = field(default_factory=Playback)
-
-    # Visibility toggle for the trajectory rendering.
-    paths_visible: bool = True

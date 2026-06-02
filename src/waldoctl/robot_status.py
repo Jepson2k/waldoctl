@@ -159,10 +159,9 @@ class ToolTimeSeries:
     dirty flag.
     """
 
-    __slots__ = ("_ts", "_pos", "_cur", "_maxlen", "_dirty")
+    __slots__ = ("_ts", "_pos", "_cur", "_dirty")
 
     def __init__(self, max_points: int = 500) -> None:
-        self._maxlen = max_points
         self._ts: deque[float] = deque(maxlen=max_points)
         self._pos: deque[float] = deque(maxlen=max_points)
         self._cur: deque[float] = deque(maxlen=max_points)

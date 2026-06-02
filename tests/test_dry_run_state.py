@@ -28,7 +28,6 @@ def test_dry_run_defaults_are_empty():
     assert dr.total_duration == 0.0
     assert dr.final_joints_rad is None
     assert dr.last_sim_joints_deg is None
-    assert dr.paths_visible is True
     assert isinstance(dr.playback, Playback)
 
 
@@ -83,7 +82,7 @@ def test_wholesale_path_segments_reassign_fires_binding():
     assert t.value == 2
 
 
-def test_program_target_from_dict_roundtrip():
+def test_program_target_from_dict():
     d = dict(
         id="t0",
         line_number=1,
@@ -96,6 +95,22 @@ def test_program_target_from_dict_roundtrip():
     assert pt.line_number == 1
     assert pt.move_type == "cartesian"
     assert pt.is_valid is True
+
+
+def test_path_segment_from_dict():
+    d = dict(
+        points=[[0, 0, 0], [1, 1, 1]],
+        color="#0f0",
+        is_valid=True,
+        line_number=2,
+        move_type="joints",
+    )
+    seg = PathSegment.from_dict(d)
+    assert seg.points == [[0, 0, 0], [1, 1, 1]]
+    assert seg.color == "#0f0"
+    assert seg.line_number == 2
+    assert seg.move_type == "joints"
+    assert seg.is_dashed is True
 
 
 def test_path_segment_optional_fields_default():

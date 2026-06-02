@@ -70,8 +70,9 @@ class Execution(ChangeNotifierMixin):
 
     The asyncio process handle that backs script execution stays in the host
     application (one program runs at a time, enforced there); this surface
-    exposes the bindable ``is_running`` flag and the lifecycle methods that
-    delegate to the host's script runner.
+    exposes the bindable ``is_running`` flag. The ``run`` / ``stop`` / ``pause``
+    / ``resume`` methods are stubs that ``raise NotImplementedError`` until the
+    host wires them.
     """
 
     is_running: bool = False
@@ -115,8 +116,9 @@ class Recording(ChangeNotifierMixin):
 
     The host application's ``motion_recorder`` service enforces the
     one-recording-at-a-time invariant across all programs and routes captured
-    code into the program that started the recording. This surface exposes
-    the bindable flag and lifecycle methods.
+    code into the program that started the recording. This surface exposes the
+    bindable ``is_recording`` flag; the ``start`` / ``stop`` methods are stubs
+    that ``raise NotImplementedError`` until the host wires them.
     """
 
     is_recording: bool = False

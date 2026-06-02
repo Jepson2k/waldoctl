@@ -2,7 +2,6 @@
 
 Sub-objects (``JogSettings``, ``GripperSettings``, ``ViewSettings``,
 ``PluginConfig``) hold leaf preferences that the UI binds to directly.
-``simulator_active`` lives at the top because it's a mode flag, not a pref.
 
 **Mutate-in-place invariant**: sub-objects are constructed once and mutated;
 never reassigned.
@@ -116,4 +115,3 @@ class Settings(ChangeNotifierMixin):
     gripper: GripperSettings = field(default_factory=GripperSettings)
     view: ViewSettings = field(default_factory=ViewSettings)
     plugins: PluginConfig = field(default_factory=PluginConfig)
-    simulator_active: bool = False
