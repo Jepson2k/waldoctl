@@ -214,6 +214,12 @@ def parse_unified_diff(diff: str) -> list[DiffHunk]:
 def _apply_unified_diff(source: str, diff: str) -> str:
     """Apply a unified diff to ``source`` and return the new text.
 
+    Lines are reassembled with the source's dominant terminator (CRLF if the
+    source contains any, else LF), so a CRLF source stays CRLF and a "+"
+    addition never concatenates onto a context line that lacked a newline. The
+    source's final-newline state is preserved; a previously empty source that
+    gains content is terminated.
+
     Raises ``ValueError`` if a hunk's context doesn't match the current
     source (drift since the diff was proposed), if a hunk extends past
     end-of-file, or if the diff is unparseable.
@@ -222,12 +228,15 @@ def _apply_unified_diff(source: str, diff: str) -> str:
     if not hunks:
         return source
 
-    src_lines = source.splitlines(keepends=True)
-    result: list[str] = []
+    src_lines = source.splitlines()  # bare content, terminators stripped
+    terminator = "\r\n" if "\r\n" in source else "\n"
+    out: list[str] = []
     cursor = 0  # 0-indexed source position
 
     for h in hunks:
-        target = h.old_start - 1
+        # old_start == 0 is the canonical empty-file insertion point; clamp so
+        # it does not read as a negative cursor and trip the overlap guard.
+        target = max(h.old_start - 1, 0)
         if target < cursor:
             raise ValueError(f"hunk @ source line {h.old_start} overlaps a prior hunk")
         while cursor < target:
@@ -235,33 +244,36 @@ def _apply_unified_diff(source: str, diff: str) -> str:
                 raise ValueError(
                     f"hunk @ source line {h.old_start} starts past end of file"
                 )
-            result.append(src_lines[cursor])
+            out.append(src_lines[cursor])
             cursor += 1
         for op, content in h.body:
             if op == " ":
                 if cursor >= len(src_lines):
                     raise ValueError(f"context past end of source at line {cursor + 1}")
-                if src_lines[cursor].rstrip("\r\n") != content:
+                if src_lines[cursor] != content:
                     raise ValueError(
                         f"context mismatch at source line {cursor + 1}: "
-                        f"expected {content!r}, got "
-                        f"{src_lines[cursor].rstrip()!r}"
+                        f"expected {content!r}, got {src_lines[cursor]!r}"
                     )
-                result.append(src_lines[cursor])
+                out.append(src_lines[cursor])
                 cursor += 1
             elif op == "-":
                 if cursor >= len(src_lines):
                     raise ValueError("removal past end of source")
-                if src_lines[cursor].rstrip("\r\n") != content:
+                if src_lines[cursor] != content:
                     raise ValueError(f"removal mismatch at source line {cursor + 1}")
                 cursor += 1
             else:  # op == "+"
-                result.append(content + "\n")
+                out.append(content)
 
     while cursor < len(src_lines):
-        result.append(src_lines[cursor])
+        out.append(src_lines[cursor])
         cursor += 1
-    return "".join(result)
+
+    text = terminator.join(out)
+    if out and (source.endswith(("\n", "\r")) or source == ""):
+        text += terminator
+    return text
 
 
 @binding.bindable_dataclass
@@ -283,10 +295,11 @@ class EditFlow(ChangeNotifierMixin):
     def propose(self, diff: str, description: str = "") -> EditId:
         """Validate ``diff`` against the current source and queue it.
 
-        Raises ``ValueError`` if the diff doesn't parse, doesn't apply
-        cleanly, or if no parent program is attached.
+        Raises ``ValueError`` if the diff doesn't parse or doesn't apply
+        cleanly, or ``RuntimeError`` if no parent program is attached.
         """
-        assert self._program is not None, "EditFlow not bound to a Program"
+        if self._program is None:
+            raise RuntimeError("EditFlow not bound to a Program")
         _apply_unified_diff(self._program.source, diff)  # validate now
         edit_id = EditId(value=uuid.uuid4().hex[:12])
         self.pending = [
@@ -304,10 +317,12 @@ class EditFlow(ChangeNotifierMixin):
     def approve(self, edit_id: EditId) -> None:
         """Apply the edit's diff to the program's source, then drop it.
 
-        Raises ``KeyError`` if ``edit_id`` is not pending, or
-        ``ValueError`` if the source has drifted since ``propose``.
+        Raises ``KeyError`` if ``edit_id`` is not pending, ``ValueError`` if
+        the source has drifted since ``propose``, or ``RuntimeError`` if no
+        parent program is attached.
         """
-        assert self._program is not None, "EditFlow not bound to a Program"
+        if self._program is None:
+            raise RuntimeError("EditFlow not bound to a Program")
         for i, e in enumerate(self.pending):
             if e.id == edit_id:
                 new_source = _apply_unified_diff(self._program.source, e.diff)

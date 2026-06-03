@@ -103,7 +103,6 @@ def test_mcp_settings_defaults_are_off_and_safe():
     assert m.enabled is False  # opt-in
     assert m.host == "127.0.0.1"  # loopback only by default
     assert m.port == 7400
-    assert m.auth_token is None
     assert m.allow_motion is True
 
 

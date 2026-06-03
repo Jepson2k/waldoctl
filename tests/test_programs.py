@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 import pytest
+from nicegui import binding
 
 from waldoctl import (
     DryRun,
@@ -19,6 +20,10 @@ from waldoctl import (
     RecordedProgram,
     Recording,
 )
+
+
+class _Target:
+    value: object = None
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +183,46 @@ def test_edit_flow_multi_hunk_apply():
     edit_id = p.edits.propose(diff)
     p.edits.approve(edit_id)
     assert p.source == "A\nb\nc\nD\ne\n"
+
+
+def test_edit_flow_insert_into_empty_program():
+    # Canonical empty-file insertion hunk @@ -0,0 +1,N @@ (old_start == 0); a
+    # new program gets a trailing newline.
+    p = Program(source="")
+    edit_id = p.edits.propose("@@ -0,0 +1,2 @@\n+import time\n+print(1)\n")
+    p.edits.approve(edit_id)
+    assert p.source == "import time\nprint(1)\n"
+
+
+def test_edit_flow_no_final_newline_addition_does_not_concatenate():
+    # The last source line has no trailing newline; an addition after it must
+    # land on its own line, and no spurious final newline is introduced.
+    p = Program(source="print(1)")
+    edit_id = p.edits.propose("@@ -1,1 +1,2 @@\n print(1)\n+print(2)\n")
+    p.edits.approve(edit_id)
+    assert p.source == "print(1)\nprint(2)"
+
+
+def test_edit_flow_replacing_last_line_keeps_no_final_newline():
+    p = Program(source="a\nb\nc")  # no trailing newline
+    edit_id = p.edits.propose("@@ -3,1 +3,1 @@\n-c\n+C\n")
+    p.edits.approve(edit_id)
+    assert p.source == "a\nb\nC"
+
+
+def test_edit_flow_preserves_crlf_line_endings():
+    p = Program(source="a\r\nb\r\n")
+    edit_id = p.edits.propose("@@ -2,1 +2,1 @@\n-b\n+B\n")
+    p.edits.approve(edit_id)
+    assert p.source == "a\r\nB\r\n"
+
+
+def test_edit_flow_unbound_raises_runtime_error():
+    flow = EditFlow()  # not attached to a Program
+    with pytest.raises(RuntimeError, match="not bound"):
+        flow.propose("@@ -0,0 +1,1 @@\n+x\n")
+    with pytest.raises(RuntimeError, match="not bound"):
+        flow.approve(EditId("nope"))
 
 
 def test_edit_flow_pending_reassignment_fires_binding():
