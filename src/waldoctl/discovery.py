@@ -22,7 +22,7 @@ Each entry-point value must reference the corresponding base class
 from __future__ import annotations
 
 import importlib.metadata
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
@@ -34,6 +34,41 @@ if TYPE_CHECKING:
 _ROBOTS_GROUP = "waldoctl.robots"
 _PANELS_GROUP = "waldoctl.panels"
 _TOOLS_GROUP = "waldoctl.tools"
+
+_T = TypeVar("_T")
+
+
+def _load_entry_point_class(
+    listing: dict[str, EntryPoint],
+    name: str,
+    base: type[_T],
+    kind: str,
+    not_found_hint: str = "",
+) -> type[_T]:
+    """Load and validate an entry-point class against *base*.
+
+    *listing* is the group's name→EntryPoint mapping; *kind* names it for the
+    not-found message (e.g. ``"Panel plugin"``).
+
+    Raises:
+        LookupError: if *name* is not registered.
+        TypeError: if the loaded object is not a *base* subclass.
+        ImportError: if the entry point's module cannot be imported.
+        AttributeError: if the named attribute is missing from the module.
+    """
+    if name not in listing:
+        available = ", ".join(sorted(listing)) or "(none)"
+        msg = f"{kind} {name!r} not found. Available: {available}."
+        if not_found_hint:
+            msg = f"{msg} {not_found_hint}"
+        raise LookupError(msg)
+    ep = listing[name]
+    cls = ep.load()
+    if not (isinstance(cls, type) and issubclass(cls, base)):
+        raise TypeError(
+            f"Entry point {name!r} ({ep.value}) is not a waldoctl.{base.__name__} subclass"
+        )
+    return cls
 
 
 def list_backends() -> dict[str, EntryPoint]:
@@ -56,20 +91,13 @@ def load_robot_class(name: str) -> type[Robot]:
     """
     from waldoctl.robot import Robot
 
-    backends = list_backends()
-    if name not in backends:
-        available = ", ".join(sorted(backends)) or "(none)"
-        raise LookupError(
-            f"Robot backend {name!r} not found. Available: {available}. "
-            f"Install with: pip install {name}"
-        )
-    ep = backends[name]
-    cls = ep.load()
-    if not (isinstance(cls, type) and issubclass(cls, Robot)):
-        raise TypeError(
-            f"Entry point {name!r} ({ep.value}) is not a waldoctl.Robot subclass"
-        )
-    return cls
+    return _load_entry_point_class(
+        list_backends(),
+        name,
+        Robot,
+        "Robot backend",
+        not_found_hint=f"Install with: pip install {name}",
+    )
 
 
 def get_robot(name: str, **kwargs: object) -> Robot:
@@ -101,17 +129,7 @@ def load_panel_class(name: str) -> type[Panel]:
     """
     from waldoctl.panels import Panel
 
-    panels = list_panels()
-    if name not in panels:
-        available = ", ".join(sorted(panels)) or "(none)"
-        raise LookupError(f"Panel plugin {name!r} not found. Available: {available}.")
-    ep = panels[name]
-    cls = ep.load()
-    if not (isinstance(cls, type) and issubclass(cls, Panel)):
-        raise TypeError(
-            f"Entry point {name!r} ({ep.value}) is not a waldoctl.Panel subclass"
-        )
-    return cls
+    return _load_entry_point_class(list_panels(), name, Panel, "Panel plugin")
 
 
 def iter_plugin_panels() -> list[type[Panel]]:
@@ -125,7 +143,7 @@ def iter_plugin_panels() -> list[type[Panel]]:
     for name in sorted(list_panels()):
         try:
             cls = load_panel_class(name)
-        except (LookupError, TypeError, ImportError):
+        except (LookupError, TypeError, ImportError, AttributeError):
             continue
         classes.append(cls)
     return classes
@@ -151,14 +169,4 @@ def load_tool_spec_class(name: str) -> type[ToolSpec]:
     """
     from waldoctl.tools import ToolSpec
 
-    specs = list_tool_specs()
-    if name not in specs:
-        available = ", ".join(sorted(specs)) or "(none)"
-        raise LookupError(f"Tool spec {name!r} not found. Available: {available}.")
-    ep = specs[name]
-    cls = ep.load()
-    if not (isinstance(cls, type) and issubclass(cls, ToolSpec)):
-        raise TypeError(
-            f"Entry point {name!r} ({ep.value}) is not a waldoctl.ToolSpec subclass"
-        )
-    return cls
+    return _load_entry_point_class(list_tool_specs(), name, ToolSpec, "Tool spec")

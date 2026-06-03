@@ -86,6 +86,32 @@ def test_iter_plugin_panels_skips_invalid(monkeypatch: pytest.MonkeyPatch) -> No
     assert iter_plugin_panels() == [_NotesPanel]
 
 
+def test_iter_plugin_panels_skips_typoed_attribute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An entry point whose module imports but whose class attribute is missing
+    (a typo) raises AttributeError on load; it must be skipped, not abort the
+    other panels."""
+    real = importlib.metadata.entry_points
+
+    def fake(*, group: str = "") -> list[importlib.metadata.EntryPoint]:
+        if group != "waldoctl.panels":
+            return real(group=group) if group else real()
+        return [
+            importlib.metadata.EntryPoint(
+                name="typo", value=f"{__name__}:NoSuchPanel", group="waldoctl.panels"
+            ),
+            importlib.metadata.EntryPoint(
+                name="notes",
+                value=f"{_NotesPanel.__module__}:{_NotesPanel.__qualname__}",
+                group="waldoctl.panels",
+            ),
+        ]
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", fake)
+    assert iter_plugin_panels() == [_NotesPanel]
+
+
 def test_panel_defaults() -> None:
     panel = _NotesPanel()
     assert panel.applies_to(None) is True  # type: ignore[arg-type]
