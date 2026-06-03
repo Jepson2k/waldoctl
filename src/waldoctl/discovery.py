@@ -22,6 +22,7 @@ Each entry-point value must reference the corresponding base class
 from __future__ import annotations
 
 import importlib.metadata
+import logging
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
@@ -31,9 +32,15 @@ if TYPE_CHECKING:
     from waldoctl.robot import Robot
     from waldoctl.tools import ToolSpec
 
+logger = logging.getLogger(__name__)
+
 _ROBOTS_GROUP = "waldoctl.robots"
 _PANELS_GROUP = "waldoctl.panels"
 _TOOLS_GROUP = "waldoctl.tools"
+
+# A panel subclass must set these ClassVars; one with any unset is malformed
+# and is skipped at discovery so it cannot crash the frontend's panel build.
+_REQUIRED_PANEL_CLASSVARS = ("id", "slot", "display_name")
 
 _T = TypeVar("_T")
 
@@ -133,17 +140,33 @@ def load_panel_class(name: str) -> type[Panel]:
 
 
 def iter_plugin_panels() -> list[type[Panel]]:
-    """Return all registered panel classes, validated as ``Panel`` subclasses.
+    """Return all registered panel classes that are valid ``Panel`` subclasses
+    with their required class metadata set.
 
-    Panels with invalid entry points (wrong base class, unimportable module)
-    are skipped — one broken plugin must not prevent others from loading.
+    Panels are skipped (and logged) when their entry point is invalid (wrong
+    base class, unimportable module, typo'd class name) or a required ClassVar
+    (``id`` / ``slot`` / ``display_name``) is unset — one broken plugin must not
+    prevent others from loading, and callers can use ``cls.id`` / ``cls.slot`` /
+    ``cls.display_name`` directly without guards.
     """
 
     classes: list[type[Panel]] = []
     for name in sorted(list_panels()):
         try:
             cls = load_panel_class(name)
-        except (LookupError, TypeError, ImportError, AttributeError):
+        except (LookupError, TypeError, ImportError, AttributeError) as e:
+            logger.warning("Skipping panel plugin %r: %s", name, e)
+            continue
+        missing = [
+            a for a in _REQUIRED_PANEL_CLASSVARS if getattr(cls, a, None) is None
+        ]
+        if missing:
+            logger.warning(
+                "Skipping panel plugin %r (%s): unset required ClassVar(s): %s",
+                name,
+                cls.__name__,
+                ", ".join(missing),
+            )
             continue
         classes.append(cls)
     return classes

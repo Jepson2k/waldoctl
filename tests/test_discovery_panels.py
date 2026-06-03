@@ -28,6 +28,16 @@ class _NotAPanel:
     """Decoy class that is not a Panel subclass."""
 
 
+class _NoIdPanel(Panel):
+    """Malformed panel: a Panel subclass that never sets the required ``id``."""
+
+    display_name: ClassVar[str] = "No Id"
+    slot: ClassVar[PanelSlot] = PanelSlot.LEFT_TOP_TAB
+
+    def build(self, commander: object) -> None:
+        pass
+
+
 def _fake_entry_points(
     monkeypatch: pytest.MonkeyPatch, mapping: dict[str, object]
 ) -> None:
@@ -109,6 +119,15 @@ def test_iter_plugin_panels_skips_typoed_attribute(
         ]
 
     monkeypatch.setattr(importlib.metadata, "entry_points", fake)
+    assert iter_plugin_panels() == [_NotesPanel]
+
+
+def test_iter_plugin_panels_skips_missing_classvars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A Panel subclass that never sets the required `id` ClassVar is malformed;
+    # it is skipped so downstream `cls.id` access is guard-free.
+    _fake_entry_points(monkeypatch, {"noid": _NoIdPanel, "notes": _NotesPanel})
     assert iter_plugin_panels() == [_NotesPanel]
 
 
