@@ -254,8 +254,9 @@ class ProgramTabs(ChangeNotifierMixin):
     ``programs.get(id)`` (returns ``None``). Path is the natural outside key
     for MCP / file-operation tools — use :meth:`find_by_path`.
 
-    **Mutate-in-place invariant**: the ``items`` list is reassigned wholesale
-    on open / close so bindings fire; individual ``Program`` instances are
+    **List-reassign invariant**: the ``items`` list is reassigned wholesale
+    on open / close so bindings fire (the opposite of the sub-object
+    "mutate-in-place" rule elsewhere); individual ``Program`` instances are
     long-lived and their sub-objects must not be reassigned.
     """
 
@@ -265,12 +266,7 @@ class ProgramTabs(ChangeNotifierMixin):
     @property
     def active(self) -> Program | None:
         """The currently active program, or ``None`` if no programs are open."""
-        if not self.active_id:
-            return None
-        for p in self.items:
-            if p.id == self.active_id:
-                return p
-        return None
+        return self.get(self.active_id) if self.active_id else None
 
     # --- Actions ----------------------------------------------------------
     def open(self, path: str) -> Program:

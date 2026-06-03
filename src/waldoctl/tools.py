@@ -482,6 +482,10 @@ class ToolSpec(ABC):
 
         Resolution order: ``runtime_settings.camera_device`` if set, else
         ``camera_spec.device`` if a ``camera_spec`` exists, else ``None``.
+
+        Two values mean "no camera": ``None`` (no spec or override supplies a
+        device) and ``-1`` (a spec is present but set to ``CameraSpec.device``'s
+        no-camera sentinel). Callers must treat both as absent.
         """
         override = self._runtime_settings.camera_device
         if override is not None:
@@ -506,8 +510,8 @@ class ToolSpec(ABC):
         """Query current tool status from the controller.
 
         Returns the live tool status (state, engaged, positions, channels).
-        Abstract on the base ``ToolSpec``; client-bound tool subclasses
-        implement it against the controller.
+        The base ``ToolSpec`` raises ``NotImplementedError``; client-bound
+        tool subclasses override it against the controller.
         """
         raise NotImplementedError
 
