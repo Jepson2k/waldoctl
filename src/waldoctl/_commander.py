@@ -16,6 +16,7 @@ from waldoctl.client import RobotClient
 from waldoctl.programs import ProgramTabs
 from waldoctl.robot import Robot
 from waldoctl.robot_status import RobotStatus
+from waldoctl.scene import SceneHandle
 from waldoctl.settings import Settings
 
 
@@ -50,3 +51,7 @@ class Commander:
 
     settings: Settings
     """User-facing preferences and runtime plugin / backend configuration."""
+
+    scene: SceneHandle | None = None
+    """Host 3D scene handle for plugins to draw into. ``None`` on hosts without
+    a 3D scene — plugins must guard before drawing."""

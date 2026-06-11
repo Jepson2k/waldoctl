@@ -61,6 +61,9 @@ class Panel(ABC):
     def build(self, commander: Commander) -> None:
         """Build UI elements inside the frontend's active tab container."""
 
+    def build_settings(self, commander: Commander) -> None:
+        """Render this panel's settings rows in the host Settings panel (optional)."""
+
     async def start(self, commander: Commander) -> None:
         """Spawn long-running tasks. Called after the page is built."""
 

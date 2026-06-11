@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from importlib.metadata import EntryPoint
 
     from waldoctl.panels import Panel
@@ -193,3 +194,31 @@ def load_tool_spec_class(name: str) -> type[ToolSpec]:
     from waldoctl.tools import ToolSpec
 
     return _load_entry_point_class(list_tool_specs(), name, ToolSpec, "Tool spec")
+
+
+def iter_plugin_tools() -> list[type[ToolSpec]]:
+    """Return registered ``ToolSpec`` classes from ``waldoctl.tools``, skipping
+    (and logging) any whose entry point is invalid. Mirrors
+    :func:`iter_plugin_panels`."""
+    classes: list[type[ToolSpec]] = []
+    for name in sorted(list_tool_specs()):
+        try:
+            cls = load_tool_spec_class(name)
+        except (LookupError, TypeError, ImportError, AttributeError) as e:
+            logger.warning("Skipping tool plugin %r: %s", name, e)
+            continue
+        classes.append(cls)
+    return classes
+
+
+def iter_plugin_tool_specs() -> list[ToolSpec]:
+    """Instantiate the ``waldoctl.tools`` entry-point classes, skipping (and
+    logging) any that fail. Tool-spec classes must be zero-arg constructible."""
+    specs: list[ToolSpec] = []
+    for cls in iter_plugin_tools():
+        ctor = cast("Callable[[], ToolSpec]", cls)
+        try:
+            specs.append(ctor())
+        except Exception as e:
+            logger.warning("Plugin tool %s failed to instantiate: %s", cls, e)
+    return specs

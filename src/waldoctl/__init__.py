@@ -7,6 +7,8 @@ from waldoctl.client import RobotClient
 from waldoctl.discovery import (
     available_backends,
     iter_plugin_panels,
+    iter_plugin_tool_specs,
+    iter_plugin_tools,
     list_backends,
     list_panels,
     list_tool_specs,
@@ -24,6 +26,7 @@ from waldoctl.dry_run_state import (
     ToolSelection,
 )
 from waldoctl.panels import Panel, PanelSlot
+from waldoctl.scene import SceneHandle
 from waldoctl.joints import (
     CartesianKinodynamicLimits,
     HomePosition,
@@ -80,6 +83,7 @@ from waldoctl.tools import (
     ActivationType,
     CameraSpec,
     ChannelDescriptor,
+    ComposedToolsSpec,
     ElectricGripperTool,
     GripperTool,
     GripperType,
@@ -91,12 +95,14 @@ from waldoctl.tools import (
     RotaryMotion,
     ToggleMode,
     ToolRuntimeSettings,
+    ToolsCollection,
     ToolSpec,
     ToolsSpec,
     ToolState,
     ToolStatus,
     ToolType,
     ToolVariant,
+    resolve_variant_tcp,
 )
 from waldoctl.types import Axis, Frame
 
@@ -180,6 +186,9 @@ __all__ = [
     "ToggleMode",
     "MeshRole",
     "ToolSpec",
+    "ToolsCollection",
+    "ComposedToolsSpec",
+    "resolve_variant_tcp",
     "GripperTool",
     "ElectricGripperTool",
     "PneumaticGripperTool",
@@ -199,11 +208,14 @@ __all__ = [
     "list_panels",
     "load_panel_class",
     "iter_plugin_panels",
+    "iter_plugin_tools",
+    "iter_plugin_tool_specs",
     "list_tool_specs",
     "load_tool_spec_class",
     # Plugin panels
     "Panel",
     "PanelSlot",
+    "SceneHandle",
     # Version
     "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
