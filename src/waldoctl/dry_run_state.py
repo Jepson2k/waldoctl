@@ -22,7 +22,7 @@ from typing import Any
 import numpy as np
 from nicegui import binding
 
-from waldoctl.robot_status import ChangeNotifierMixin
+from waldoctl.notify import ChangeNotifierMixin
 
 
 # ---------------------------------------------------------------------------
@@ -111,10 +111,13 @@ class Playback(ChangeNotifierMixin):
 
     The ``executing_step_*`` fields track step lifecycle for running scripts:
     when a user script is executing, it advances through waypoints and the
-    host application updates these so playback listeners can distinguish
-    "step N just started" from "step N just completed". Step-aware consumers
-    subscribe via :meth:`ChangeNotifierMixin.add_step_listener` for the
-    high-frequency channel.
+    host application updates these to distinguish "step N just started" from
+    "step N just completed".
+
+    The :meth:`ChangeNotifierMixin.add_step_listener` channel on this object is
+    reserved for that high-frequency stream; the current host routes step
+    events through its own internal channel rather than firing this one, so do
+    not rely on per-program step notifications here yet.
     """
 
     is_playing: bool = False

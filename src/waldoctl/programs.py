@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from nicegui import binding
 
 from waldoctl.dry_run_state import DryRun
-from waldoctl.robot_status import ChangeNotifierMixin
+from waldoctl.notify import ChangeNotifierMixin
 
 
 # ---------------------------------------------------------------------------

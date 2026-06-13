@@ -14,7 +14,7 @@ from enum import Enum
 
 from nicegui import binding
 
-from waldoctl.robot_status import ChangeNotifierMixin
+from waldoctl.notify import ChangeNotifierMixin
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
+
+import pytest
 from nicegui import binding
 
 from waldoctl import CameraSpec, ToolRuntimeSettings, ToolStatus
@@ -51,11 +54,8 @@ def test_camera_spec_defaults():
 
 def test_camera_spec_is_frozen():
     c = CameraSpec(device=3)
-    try:
+    with pytest.raises(dataclasses.FrozenInstanceError):
         c.device = 5  # type: ignore[misc]
-    except Exception:
-        return
-    raise AssertionError("CameraSpec should be frozen")
 
 
 # ---------------------------------------------------------------------------
