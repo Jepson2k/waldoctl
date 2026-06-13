@@ -22,14 +22,14 @@ and settings — the same public surface every other consumer uses.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from waldoctl._commander import Commander
 
 
-class PanelSlot(str, Enum):
+class PanelSlot(StrEnum):
     """Where a plugin panel attaches in the frontend layout."""
 
     LEFT_TOP_TAB = "left-top-tab"
@@ -44,6 +44,17 @@ class Panel(ABC):
     Subclasses set the class-level metadata (``id``, ``display_name``,
     ``slot``) and override :meth:`build`. The remaining hooks are
     optional — override only what the panel needs.
+
+    Lifecycle cardinality (what the host guarantees about each hook):
+
+    - :meth:`applies_to` — evaluated once, at first discovery.
+    - :meth:`build` — called once per page render, on the **same** panel
+      instance (the instance is cached for the process). Treat any element
+      references captured here as per-build state; a prior build's refs belong
+      to a now-dead client.
+    - :meth:`build_settings` — called per Settings render, same instance.
+    - :meth:`start` / :meth:`stop` — called once per process (start after the
+      first build; stop at shutdown).
     """
 
     id: ClassVar[str]
@@ -54,18 +65,23 @@ class Panel(ABC):
     order: ClassVar[int] = 100
 
     def applies_to(self, commander: Commander) -> bool:
-        """Return False to suppress the tab for this robot/session."""
+        """Return False to suppress the tab for this robot/session. Evaluated
+        once at discovery — not re-checked per session."""
         return True
 
     @abstractmethod
     def build(self, commander: Commander) -> None:
-        """Build UI elements inside the frontend's active tab container."""
+        """Build UI elements inside the frontend's active tab container. Called
+        once per page render on the same instance — see the class docstring."""
 
     def build_settings(self, commander: Commander) -> None:
-        """Render this panel's settings rows in the host Settings panel (optional)."""
+        """Render this panel's settings rows in the host Settings panel
+        (optional). Called per Settings render on the same instance."""
 
     async def start(self, commander: Commander) -> None:
-        """Spawn long-running tasks. Called after the page is built."""
+        """Spawn long-running tasks. Called once per process, after the first
+        page build."""
 
     async def stop(self) -> None:
-        """Cancel/await tasks started in :meth:`start`. Called on shutdown."""
+        """Cancel/await tasks started in :meth:`start`. Called once per process
+        at shutdown."""

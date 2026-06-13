@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import importlib.metadata
-
 import pytest
 
+from tests.conftest import install_fake_entry_points
 from waldoctl import ToolSpec, ToolType
 from waldoctl.discovery import list_tool_specs, load_tool_spec_class
 
@@ -28,23 +27,8 @@ class _NotATool:
 def _fake_entry_points(
     monkeypatch: pytest.MonkeyPatch, mapping: dict[str, object]
 ) -> None:
-    real = importlib.metadata.entry_points
-
-    def fake(*, group: str = "") -> list[importlib.metadata.EntryPoint]:
-        if group != "waldoctl.tools":
-            return real(group=group) if group else real()
-        eps = []
-        for name, target in mapping.items():
-            eps.append(
-                importlib.metadata.EntryPoint(
-                    name=name,
-                    value=f"{target.__module__}:{target.__qualname__}",
-                    group="waldoctl.tools",
-                )
-            )
-        return eps
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", fake)
+    """Install fake ``waldoctl.tools`` entry points for *mapping*."""
+    install_fake_entry_points(monkeypatch, "waldoctl.tools", mapping)
 
 
 def test_list_tool_specs_empty(monkeypatch: pytest.MonkeyPatch) -> None:

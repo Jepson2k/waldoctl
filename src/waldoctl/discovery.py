@@ -70,7 +70,18 @@ def _load_entry_point_class(
         if not_found_hint:
             msg = f"{msg} {not_found_hint}"
         raise LookupError(msg)
-    ep = listing[name]
+    return _validate_entry_point(name, listing[name], base)
+
+
+def _validate_entry_point(name: str, ep: EntryPoint, base: type[_T]) -> type[_T]:
+    """Load an already-resolved EntryPoint and type-check it against *base*.
+
+    Split out so the ``iter_plugin_*`` discovery loops can validate each
+    EntryPoint from a single group listing instead of re-listing the whole
+    group per name. Raises ``TypeError`` if the object isn't a *base* subclass;
+    ``ep.load()`` may raise ``ImportError`` / ``AttributeError`` and, since it
+    runs third-party module code, anything else.
+    """
     cls = ep.load()
     if not (isinstance(cls, type) and issubclass(cls, base)):
         raise TypeError(
@@ -96,6 +107,7 @@ def load_robot_class(name: str) -> type[Robot]:
         LookupError: if no entry point with *name* is registered.
         TypeError: if the loaded object is not a ``Robot`` subclass.
         ImportError: if the entry point's module cannot be imported.
+        AttributeError: if the named attribute is missing from the module.
     """
     from waldoctl.robot import Robot
 
@@ -134,6 +146,7 @@ def load_panel_class(name: str) -> type[Panel]:
         LookupError: if no entry point with *name* is registered.
         TypeError: if the loaded object is not a ``Panel`` subclass.
         ImportError: if the entry point's module cannot be imported.
+        AttributeError: if the named attribute is missing from the module.
     """
     from waldoctl.panels import Panel
 
@@ -151,11 +164,17 @@ def iter_plugin_panels() -> list[type[Panel]]:
     ``cls.display_name`` directly without guards.
     """
 
+    from waldoctl.panels import Panel, PanelSlot
+
     classes: list[type[Panel]] = []
-    for name in sorted(list_panels()):
+    seen_ids: set[str] = set()
+    # Iterate the group listing once. ``ep.load()`` runs arbitrary third-party
+    # module code, so catch broadly and skip — one misbehaving plugin must not
+    # take down the host's panel build.
+    for name, ep in sorted(list_panels().items()):
         try:
-            cls = load_panel_class(name)
-        except (LookupError, TypeError, ImportError, AttributeError) as e:
+            cls = _validate_entry_point(name, ep, Panel)
+        except Exception as e:  # noqa: BLE001 — third-party import boundary
             logger.warning("Skipping panel plugin %r: %s", name, e)
             continue
         missing = [
@@ -169,6 +188,23 @@ def iter_plugin_panels() -> list[type[Panel]]:
                 ", ".join(missing),
             )
             continue
+        if not isinstance(cls.slot, PanelSlot):
+            logger.warning(
+                "Skipping panel plugin %r (%s): slot %r is not a PanelSlot",
+                name,
+                cls.__name__,
+                cls.slot,
+            )
+            continue
+        if cls.id in seen_ids:
+            logger.warning(
+                "Skipping panel plugin %r (%s): duplicate id %r already registered",
+                name,
+                cls.__name__,
+                cls.id,
+            )
+            continue
+        seen_ids.add(cls.id)
         classes.append(cls)
     return classes
 
@@ -190,6 +226,7 @@ def load_tool_spec_class(name: str) -> type[ToolSpec]:
         LookupError: if no entry point with *name* is registered.
         TypeError: if the loaded object is not a ``ToolSpec`` subclass.
         ImportError: if the entry point's module cannot be imported.
+        AttributeError: if the named attribute is missing from the module.
     """
     from waldoctl.tools import ToolSpec
 
@@ -200,11 +237,14 @@ def iter_plugin_tools() -> list[type[ToolSpec]]:
     """Return registered ``ToolSpec`` classes from ``waldoctl.tools``, skipping
     (and logging) any whose entry point is invalid. Mirrors
     :func:`iter_plugin_panels`."""
+    from waldoctl.tools import ToolSpec
+
     classes: list[type[ToolSpec]] = []
-    for name in sorted(list_tool_specs()):
+    # Single group listing; broad catch around the third-party load boundary.
+    for name, ep in sorted(list_tool_specs().items()):
         try:
-            cls = load_tool_spec_class(name)
-        except (LookupError, TypeError, ImportError, AttributeError) as e:
+            cls = _validate_entry_point(name, ep, ToolSpec)
+        except Exception as e:  # noqa: BLE001 — third-party import boundary
             logger.warning("Skipping tool plugin %r: %s", name, e)
             continue
         classes.append(cls)

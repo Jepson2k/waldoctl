@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import importlib.metadata
 from typing import ClassVar
 
 import pytest
 
+from tests.conftest import install_fake_entry_points
 from waldoctl import Panel, PanelSlot
 from waldoctl.discovery import (
     iter_plugin_panels,
@@ -41,26 +41,8 @@ class _NoIdPanel(Panel):
 def _fake_entry_points(
     monkeypatch: pytest.MonkeyPatch, mapping: dict[str, object]
 ) -> None:
-    """Install ``importlib.metadata.entry_points`` returning *mapping* for the
-    ``waldoctl.panels`` group."""
-
-    real = importlib.metadata.entry_points
-
-    def fake(*, group: str = "") -> list[importlib.metadata.EntryPoint]:
-        if group != "waldoctl.panels":
-            return real(group=group) if group else real()
-        eps = []
-        for name, target in mapping.items():
-            eps.append(
-                importlib.metadata.EntryPoint(
-                    name=name,
-                    value=f"{target.__module__}:{target.__qualname__}",
-                    group="waldoctl.panels",
-                )
-            )
-        return eps
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", fake)
+    """Install fake ``waldoctl.panels`` entry points for *mapping*."""
+    install_fake_entry_points(monkeypatch, "waldoctl.panels", mapping)
 
 
 def test_list_panels_empty(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,23 +84,11 @@ def test_iter_plugin_panels_skips_typoed_attribute(
     """An entry point whose module imports but whose class attribute is missing
     (a typo) raises AttributeError on load; it must be skipped, not abort the
     other panels."""
-    real = importlib.metadata.entry_points
-
-    def fake(*, group: str = "") -> list[importlib.metadata.EntryPoint]:
-        if group != "waldoctl.panels":
-            return real(group=group) if group else real()
-        return [
-            importlib.metadata.EntryPoint(
-                name="typo", value=f"{__name__}:NoSuchPanel", group="waldoctl.panels"
-            ),
-            importlib.metadata.EntryPoint(
-                name="notes",
-                value=f"{_NotesPanel.__module__}:{_NotesPanel.__qualname__}",
-                group="waldoctl.panels",
-            ),
-        ]
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", fake)
+    # The string value points at a missing attribute (raises AttributeError on
+    # load); the helper accepts a raw "module:attr" string for exactly this.
+    _fake_entry_points(
+        monkeypatch, {"typo": f"{__name__}:NoSuchPanel", "notes": _NotesPanel}
+    )
     assert iter_plugin_panels() == [_NotesPanel]
 
 
