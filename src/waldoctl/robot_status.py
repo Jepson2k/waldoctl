@@ -17,88 +17,13 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable
 
 import numpy as np
 from nicegui import binding
 
+from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.status import ActionState
 from waldoctl.tools import ToolStatus
-
-
-# ---------------------------------------------------------------------------
-# ChangeNotifierMixin
-# ---------------------------------------------------------------------------
-
-
-class ChangeNotifierMixin:
-    """Two-channel listener pattern for cases ``bindable_dataclass`` can't
-    express on its own.
-
-    ``bindable_dataclass`` fires UI bindings on field *reassignment*. In-place
-    mutations (``list.append``, ``arr[:] = ...``, nested attribute writes,
-    multi-field state transitions) do not fire bindings; the mutator should
-    call :meth:`notify_changed` so any registered listener can react.
-
-    Two channels are exposed so high-frequency step events (e.g. a running
-    script advancing through waypoints at ~20 Hz) can fan out to a small set
-    of observers without forcing the broader change-listener chain to recompute:
-
-    - **change channel** — ``add_change_listener`` / ``remove_change_listener`` /
-      :meth:`notify_changed`. Broad state mutations; everyone subscribes.
-    - **step channel** — ``add_step_listener`` / ``remove_step_listener`` /
-      :meth:`notify_step_changed`. Hot script-step events; only playback /
-      step-aware consumers subscribe.
-
-    The lists are built lazily on first registration, so subclasses do not
-    need to redeclare them as dataclass fields. Copy-on-write storage lets
-    each ``notify_*`` iterate safely while new listeners are being added.
-
-    ``remove_*`` uses ``!=`` (not ``is not``) so bound methods are removable
-    by their function reference — each ``obj.method`` access creates a fresh
-    bound-method object that fails ``is`` but compares equal by
-    ``(instance, func)``.
-    """
-
-    def _get_listeners(self) -> list[Callable[[], None]]:
-        try:
-            return self._change_listeners  # type: ignore[attr-defined]
-        except AttributeError:
-            self._change_listeners: list[Callable[[], None]] = []
-            return self._change_listeners
-
-    def _get_step_listeners(self) -> list[Callable[[], None]]:
-        try:
-            return self._step_listeners  # type: ignore[attr-defined]
-        except AttributeError:
-            self._step_listeners: list[Callable[[], None]] = []
-            return self._step_listeners
-
-    def add_change_listener(self, callback: Callable[[], None]) -> None:
-        listeners = self._get_listeners()
-        if callback not in listeners:
-            self._change_listeners = [*listeners, callback]
-
-    def remove_change_listener(self, callback: Callable[[], None]) -> None:
-        self._change_listeners = [cb for cb in self._get_listeners() if cb != callback]
-
-    def notify_changed(self) -> None:
-        for cb in self._get_listeners():
-            cb()
-
-    def add_step_listener(self, callback: Callable[[], None]) -> None:
-        listeners = self._get_step_listeners()
-        if callback not in listeners:
-            self._step_listeners = [*listeners, callback]
-
-    def remove_step_listener(self, callback: Callable[[], None]) -> None:
-        self._step_listeners = [
-            cb for cb in self._get_step_listeners() if cb != callback
-        ]
-
-    def notify_step_changed(self) -> None:
-        for cb in self._get_step_listeners():
-            cb()
 
 
 # ---------------------------------------------------------------------------
@@ -265,18 +190,20 @@ class Pose(ChangeNotifierMixin):
 # ---------------------------------------------------------------------------
 
 
-@binding.bindable_dataclass
+@binding.bindable_dataclass(bindable_fields=["speeds", "can_jog_pos", "can_jog_neg"])
 class Joints(ChangeNotifierMixin):
     """Joint-frame live state: angles, speeds, per-joint jog availability.
 
-    ``angles`` is an :class:`AngleArray` whose internal numpy buffers are
-    mutated in place by ``set_deg()`` / ``set_rad()``; bindings to
-    ``Joints.angles`` will not fire on those writes. Consumers that need
-    per-joint reactive display bind through a backward function and rely on
-    :meth:`ChangeNotifierMixin.notify_changed` for refresh.
+    ``angles`` is an :class:`AngleArray` mutated in place by ``set_deg()`` /
+    ``set_rad()`` and is deliberately excluded from ``bindable_fields``: a
+    ``BindableProperty`` only propagates on attribute *reassignment*, which the
+    status loop never does, so an ``angles`` binding would freeze. Left
+    non-bindable, ``bind_*_from`` registers it as a polled active link that
+    re-reads the value each refresh tick — and the numpy buffer is never run
+    through ``BindableProperty``'s ``!=`` comparison.
 
-    ``speeds`` and ``can_jog_*`` are plain lists, replaced wholesale on each
-    status tick — bindings fire on reassignment.
+    ``speeds`` and ``can_jog_*`` are plain lists replaced wholesale on each
+    status tick, so their bindings fire correctly on reassignment.
     """
 
     angles: AngleArray = field(default_factory=AngleArray)

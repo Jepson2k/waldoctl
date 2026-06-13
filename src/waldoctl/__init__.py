@@ -43,6 +43,7 @@ from waldoctl.programs import (
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
+from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.robot_status import (
     IO,
     Action,
@@ -50,7 +51,6 @@ from waldoctl.robot_status import (
     ActionStatus,
     AngleArray,
     CartesianJogAvailability,
-    ChangeNotifierMixin,
     FrameJogAvailability,
     Joints,
     Pose,
@@ -138,8 +138,11 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'waldoctl' has no attribute {name!r}")
 
 
-# Type-only declaration so `from waldoctl import commander` is typed as `Commander`
-# (non-Optional) under static analysis. Runtime resolution goes through `__getattr__`.
+# Type-only declaration so dotted access `waldoctl.commander` is typed as
+# `Commander` (non-Optional) under static analysis. Runtime resolution goes
+# through `__getattr__` — always use dotted access, never `from waldoctl import
+# commander`, which would resolve the locator at import time before the host
+# has installed the Commander.
 from typing import TYPE_CHECKING  # noqa: E402
 
 if TYPE_CHECKING:

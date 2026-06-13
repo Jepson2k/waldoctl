@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
 
 import pytest
@@ -256,7 +257,7 @@ def test_edit_flow_notify_changed_fires_on_lifecycle():
 
 def test_recorded_program_is_frozen():
     rp = RecordedProgram(source="rbt.home()", started_at=1.0, stopped_at=2.0)
-    with pytest.raises(Exception):  # FrozenInstanceError on frozen slots dataclass
+    with pytest.raises(dataclasses.FrozenInstanceError):
         rp.source = "modified"  # type: ignore[misc]
 
 
@@ -267,7 +268,7 @@ def test_pending_edit_is_frozen():
         proposed_at=1.0,
         description="trim",
     )
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         pe.description = "x"  # type: ignore[misc]
 
 
