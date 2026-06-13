@@ -26,7 +26,6 @@ def test_settings_defaults_are_safe():
     assert isinstance(s.view, ViewSettings)
     assert isinstance(s.plugins, PluginConfig)
     assert isinstance(s.mcp, McpSettings)
-    assert s.simulator_active is False
 
 
 def test_jog_settings_defaults():
@@ -50,7 +49,6 @@ def test_view_settings_defaults():
     assert v.gizmo_visible is True
     assert v.paths_visible is True
     assert v.envelope_mode is EnvelopeMode.AUTO
-    assert v.preview_mode is False
 
 
 def test_plugin_config_defaults():

@@ -177,6 +177,21 @@ class DiffHunk:
     body: tuple[tuple[str, str], ...]
     """``(op, content)`` per line; ``op`` is one of ``' '``, ``'-'``, ``'+'``."""
 
+    @property
+    def start_index(self) -> int:
+        """0-indexed source line where this hunk begins applying.
+
+        A pure-insertion hunk (no context / removal lines) at ``old_start`` N>0
+        inserts *after* line N per unified-diff semantics (``git diff -U0``
+        emits ``@@ -N,0 +M @@`` for "insert after line N"), so it starts at
+        index N. Every other hunk — and the ``old_start == 0`` empty-file
+        insertion point — starts at ``old_start - 1`` (clamped at 0). Shared by
+        the apply path and frontend decoration builders so they can't diverge.
+        """
+        if self.old_start > 0 and all(op == "+" for op, _ in self.body):
+            return self.old_start
+        return max(self.old_start - 1, 0)
+
 
 def parse_unified_diff(diff: str) -> list[DiffHunk]:
     """Parse unified-diff text into a list of hunks.
@@ -234,9 +249,7 @@ def _apply_unified_diff(source: str, diff: str) -> str:
     cursor = 0  # 0-indexed source position
 
     for h in hunks:
-        # old_start == 0 is the canonical empty-file insertion point; clamp so
-        # it does not read as a negative cursor and trip the overlap guard.
-        target = max(h.old_start - 1, 0)
+        target = h.start_index
         if target < cursor:
             raise ValueError(f"hunk @ source line {h.old_start} overlaps a prior hunk")
         while cursor < target:
@@ -295,12 +308,20 @@ class EditFlow(ChangeNotifierMixin):
     def propose(self, diff: str, description: str = "") -> EditId:
         """Validate ``diff`` against the current source and queue it.
 
+        If an identical ``(diff, description)`` is already pending — e.g. an
+        MCP client retried after a transport timeout whose first call already
+        succeeded — the existing edit's id is returned instead of queuing a
+        duplicate that could never apply after the first is approved.
+
         Raises ``ValueError`` if the diff doesn't parse or doesn't apply
         cleanly, or ``RuntimeError`` if no parent program is attached.
         """
         if self._program is None:
             raise RuntimeError("EditFlow not bound to a Program")
         _apply_unified_diff(self._program.source, diff)  # validate now
+        for e in self.pending:
+            if e.diff == diff and e.description == description:
+                return e.id
         edit_id = EditId(value=uuid.uuid4().hex[:12])
         self.pending = [
             *self.pending,

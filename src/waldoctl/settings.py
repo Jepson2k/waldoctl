@@ -74,8 +74,6 @@ class ViewSettings(ChangeNotifierMixin):
     """Show trajectory paths in the scene."""
     envelope_mode: EnvelopeMode = EnvelopeMode.AUTO
     """Workspace envelope visibility (AUTO / ON / OFF)."""
-    preview_mode: bool = False
-    """True = dry-run preview, False = real-hardware execute intent."""
 
 
 @binding.bindable_dataclass
@@ -141,4 +139,3 @@ class Settings(ChangeNotifierMixin):
     view: ViewSettings = field(default_factory=ViewSettings)
     plugins: PluginConfig = field(default_factory=PluginConfig)
     mcp: McpSettings = field(default_factory=McpSettings)
-    simulator_active: bool = False

@@ -204,6 +204,15 @@ def test_edit_flow_no_final_newline_addition_does_not_concatenate():
     assert p.source == "print(1)\nprint(2)"
 
 
+def test_edit_flow_zero_context_insertion_lands_after_old_start():
+    # `git diff -U0` for inserting after line 2 emits @@ -2,0 +3 @@ — a pure
+    # insertion hunk with no context. It must land AFTER line 2, not before it.
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose("@@ -2,0 +3 @@\n+x\n")
+    p.edits.approve(edit_id)
+    assert p.source == "a\nb\nx\nc\n"
+
+
 def test_edit_flow_replacing_last_line_keeps_no_final_newline():
     p = Program(source="a\nb\nc")  # no trailing newline
     edit_id = p.edits.propose("@@ -3,1 +3,1 @@\n-c\n+C\n")
