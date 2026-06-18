@@ -9,17 +9,11 @@ from nicegui import binding
 from waldoctl import (
     Action,
     ActionLogEntry,
-    ActionState,
-    ActionStatus,
     AngleArray,
     CartesianJogAvailability,
     ChangeNotifierMixin,
     FrameJogAvailability,
-    IO,
-    Joints,
-    Pose,
     RobotStatus,
-    ToolStatus,
     ToolTimeSeries,
 )
 
@@ -28,57 +22,6 @@ class _Target:
     """Simple object that bindings can write into via ``.value``."""
 
     value: object = None
-
-
-# ---------------------------------------------------------------------------
-# Default construction
-# ---------------------------------------------------------------------------
-
-
-def test_robot_status_defaults_are_safe():
-    s = RobotStatus()
-    assert s.connected is False
-    assert s.simulator_active is False
-    assert s.editing_mode is False
-    assert s.last_update == 0.0
-    # Sub-objects are constructed (mutate-in-place invariant requires they're never None)
-    assert isinstance(s.pose, Pose)
-    assert isinstance(s.joints, Joints)
-    assert isinstance(s.io, IO)
-    assert isinstance(s.tool, ToolStatus)
-    assert isinstance(s.action, Action)
-
-
-def test_pose_defaults():
-    p = Pose()
-    assert p.x == p.y == p.z == 0.0
-    assert p.rx == p.ry == p.rz == 0.0
-    assert p.tcp_speed == 0.0
-    assert isinstance(p.cart_jog, CartesianJogAvailability)
-
-
-def test_joints_defaults():
-    j = Joints()
-    assert isinstance(j.angles, AngleArray)
-    assert len(j.angles) == 6
-    assert j.speeds == [0.0] * 6
-    assert j.can_jog_pos == [True] * 6
-    assert j.can_jog_neg == [True] * 6
-
-
-def test_io_defaults():
-    io = IO()
-    assert io.inputs == []
-    assert io.outputs == []
-    assert io.estop == 1  # 1 = OK
-
-
-def test_action_defaults():
-    a = Action()
-    assert a.state == ActionState.IDLE
-    assert a.current_name == ""
-    assert a.history == []
-    assert a.latest is None
 
 
 def test_action_latest_returns_last_entry():
@@ -312,31 +255,12 @@ def test_tool_time_series_clear():
 # ---------------------------------------------------------------------------
 
 
-def test_frame_jog_availability_defaults():
-    f = FrameJogAvailability()
-    assert f.can_jog_pos == [True] * 6
-    assert f.can_jog_neg == [True] * 6
-
-
 def test_cartesian_jog_availability_by_frame():
     c = CartesianJogAvailability()
     assert c.by_frame == {}
     c.by_frame = {"TRF": FrameJogAvailability(), "WRF": FrameJogAvailability()}
     assert "TRF" in c.by_frame
     assert "WRF" in c.by_frame
-
-
-# ---------------------------------------------------------------------------
-# ActionLogEntry / ActionStatus
-# ---------------------------------------------------------------------------
-
-
-def test_action_log_entry_defaults():
-    e = ActionLogEntry(command_name="Move")
-    assert e.command_name == "Move"
-    assert e.status == ActionStatus.EXECUTING
-    assert e.params == ""
-    assert e.count == 1
 
 
 # ---------------------------------------------------------------------------

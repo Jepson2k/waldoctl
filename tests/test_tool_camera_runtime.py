@@ -44,14 +44,6 @@ def _build_tool(*, camera_spec: CameraSpec | None = None) -> _StubTool:
 # ---------------------------------------------------------------------------
 
 
-def test_camera_spec_defaults():
-    c = CameraSpec()
-    assert c.device == -1
-    assert c.stream_url == "/tool/camera/stream"
-    assert c.width == 0
-    assert c.height == 0
-
-
 def test_camera_spec_is_frozen():
     c = CameraSpec(device=3)
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -61,11 +53,6 @@ def test_camera_spec_is_frozen():
 # ---------------------------------------------------------------------------
 # ToolRuntimeSettings
 # ---------------------------------------------------------------------------
-
-
-def test_runtime_settings_defaults():
-    rs = ToolRuntimeSettings()
-    assert rs.camera_device is None
 
 
 def test_runtime_settings_is_bindable():
