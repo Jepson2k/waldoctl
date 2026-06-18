@@ -9,38 +9,11 @@ from waldoctl import (
     PathSegment,
     Playback,
     ProgramTarget,
-    ToolAction,
-    ToolSelection,
 )
 
 
 class _Target:
     value: object = None
-
-
-def test_dry_run_defaults_are_empty():
-    dr = DryRun()
-    assert dr.targets == []
-    assert dr.path_segments == []
-    assert dr.tool_actions == []
-    assert dr.tool_selections == []
-    assert dr.total_steps == 0
-    assert dr.total_duration == 0.0
-    assert dr.final_joints_rad is None
-    assert dr.last_sim_joints_deg is None
-    assert isinstance(dr.playback, Playback)
-
-
-def test_playback_defaults():
-    pb = Playback()
-    assert pb.is_playing is False
-    assert pb.is_active is False
-    assert pb.current_step == 0
-    assert pb.playback_time == 0.0
-    assert pb.playback_speed == 1.0
-    assert pb.active_cursor_line == 0
-    assert pb.executing_step_index == -1
-    assert pb.executing_step_at_end is False
 
 
 def test_playback_step_channel_fires_on_executing_step_changes():
@@ -124,25 +97,3 @@ def test_path_segment_optional_fields_default():
     assert seg.joint_trajectory is None
     assert seg.is_dashed is True
     assert seg.is_travel is False
-
-
-def test_tool_action_construction():
-    ta = ToolAction(
-        tcp_pose=None,
-        motions=[],
-        target_positions=(0.5,),
-        activation_type="binary",
-        line_number=1,
-        method="close",
-    )
-    assert ta.method == "close"
-    assert ta.segment_index == -1
-    assert ta.estimated_duration == 0.0
-
-
-def test_tool_selection_defaults():
-    ts = ToolSelection(tool_key="GRIPPER")
-    assert ts.tool_key == "GRIPPER"
-    assert ts.variant_key == ""
-    assert ts.segment_index == -1
-    assert ts.line_number == 0

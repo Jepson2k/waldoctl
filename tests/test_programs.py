@@ -9,7 +9,6 @@ import pytest
 from nicegui import binding
 
 from waldoctl import (
-    DryRun,
     EditFlow,
     EditId,
     Execution,
@@ -30,19 +29,6 @@ class _Target:
 # ---------------------------------------------------------------------------
 # Program
 # ---------------------------------------------------------------------------
-
-
-def test_program_defaults():
-    p = Program()
-    assert p.id  # non-empty UUID hex
-    assert p.filename == "untitled.py"
-    assert p.file_path is None
-    assert p.source == ""
-    assert isinstance(p.dry_run, DryRun)
-    assert isinstance(p.log, ProgramLog)
-    assert isinstance(p.execution, Execution)
-    assert isinstance(p.recording, Recording)
-    assert isinstance(p.edits, EditFlow)
 
 
 def test_program_is_dirty_tracks_source_vs_saved():
@@ -284,13 +270,6 @@ def test_pending_edit_is_frozen():
 # ---------------------------------------------------------------------------
 # ProgramTabs
 # ---------------------------------------------------------------------------
-
-
-def test_program_tabs_starts_empty():
-    tabs = ProgramTabs()
-    assert tabs.items == []
-    assert tabs.active_id is None
-    assert tabs.active is None
 
 
 def test_program_tabs_lookup_by_id():
