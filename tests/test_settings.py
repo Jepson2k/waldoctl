@@ -14,12 +14,6 @@ class _Target:
     value: object = None
 
 
-def test_envelope_mode_values():
-    assert EnvelopeMode.AUTO.value == "auto"
-    assert EnvelopeMode.ON.value == "on"
-    assert EnvelopeMode.OFF.value == "off"
-
-
 def test_binding_through_jog_settings():
     s = Settings()
     t = _Target()

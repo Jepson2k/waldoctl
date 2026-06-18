@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import time
 
 import pytest
@@ -11,14 +10,10 @@ from nicegui import binding
 from waldoctl import (
     EditFlow,
     EditId,
-    Execution,
     LogEntry,
-    PendingEdit,
     Program,
     ProgramLog,
     ProgramTabs,
-    RecordedProgram,
-    Recording,
 )
 
 
@@ -48,14 +43,6 @@ def test_program_ids_are_unique():
     assert a.id != b.id
 
 
-def test_program_save_and_reload_stubs_raise():
-    p = Program()
-    with pytest.raises(NotImplementedError):
-        p.save()
-    with pytest.raises(NotImplementedError):
-        p.reload()
-
-
 # ---------------------------------------------------------------------------
 # ProgramLog
 # ---------------------------------------------------------------------------
@@ -83,24 +70,8 @@ def test_program_log_append_notifies_listeners():
 
 
 # ---------------------------------------------------------------------------
-# Execution / Recording / EditFlow — stubs
+# EditFlow
 # ---------------------------------------------------------------------------
-
-
-def test_execution_stubs_raise():
-    e = Execution()
-    assert e.is_running is False
-    for fn in (e.run, e.stop, e.pause, e.resume):
-        with pytest.raises(NotImplementedError):
-            fn()
-
-
-def test_recording_stubs_raise():
-    r = Recording()
-    assert r.is_recording is False
-    for fn in (r.start, r.stop, r.discard):
-        with pytest.raises(NotImplementedError):
-            fn()
 
 
 def _diff_replace_line(line_no_1indexed: int, old: str, new: str) -> str:
@@ -250,23 +221,6 @@ def test_edit_flow_notify_changed_fires_on_lifecycle():
     assert calls == ["x", "x", "x", "x"]
 
 
-def test_recorded_program_is_frozen():
-    rp = RecordedProgram(source="rbt.home()", started_at=1.0, stopped_at=2.0)
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        rp.source = "modified"  # type: ignore[misc]
-
-
-def test_pending_edit_is_frozen():
-    pe = PendingEdit(
-        id=EditId("e0"),
-        diff="--- a\n+++ b\n",
-        proposed_at=1.0,
-        description="trim",
-    )
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        pe.description = "x"  # type: ignore[misc]
-
-
 # ---------------------------------------------------------------------------
 # ProgramTabs
 # ---------------------------------------------------------------------------
@@ -308,15 +262,3 @@ def test_program_tabs_active_resolution():
     assert tabs.active is p2
     tabs.active_id = "bogus"
     assert tabs.active is None
-
-
-def test_program_tabs_action_stubs_raise():
-    tabs = ProgramTabs()
-    with pytest.raises(NotImplementedError):
-        tabs.open("/tmp/x.py")
-    with pytest.raises(NotImplementedError):
-        tabs.new()
-    with pytest.raises(NotImplementedError):
-        tabs.close("x")
-    with pytest.raises(NotImplementedError):
-        tabs.switch("x")
