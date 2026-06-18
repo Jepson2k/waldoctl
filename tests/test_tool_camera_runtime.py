@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import dataclasses
 
-import pytest
 from nicegui import binding
 
 from waldoctl import CameraSpec, ToolRuntimeSettings, ToolStatus
@@ -40,17 +38,6 @@ def _build_tool(*, camera_spec: CameraSpec | None = None) -> _StubTool:
 
 
 # ---------------------------------------------------------------------------
-# CameraSpec
-# ---------------------------------------------------------------------------
-
-
-def test_camera_spec_is_frozen():
-    c = CameraSpec(device=3)
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        c.device = 5  # type: ignore[misc]
-
-
-# ---------------------------------------------------------------------------
 # ToolRuntimeSettings
 # ---------------------------------------------------------------------------
 
@@ -68,17 +55,6 @@ def test_runtime_settings_is_bindable():
 # ---------------------------------------------------------------------------
 # ToolSpec integration
 # ---------------------------------------------------------------------------
-
-
-def test_tool_carries_camera_spec_when_provided():
-    cs = CameraSpec(device=3, width=640, height=480)
-    t = _build_tool(camera_spec=cs)
-    assert t.camera_spec is cs
-
-
-def test_tool_camera_spec_defaults_to_none():
-    t = _build_tool()
-    assert t.camera_spec is None
 
 
 def test_tool_has_per_instance_runtime_settings():

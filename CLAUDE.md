@@ -8,4 +8,4 @@ contracts — it does no robot I/O.
 
 ## Testing Guidelines
 
-- **No tautological tests.** Don't assert what's true by construction — e.g. a freshly built object's default field values. Test behavior, not the class's initializers.
+- **No tautological tests.** Assert behavior, not what's true by construction — not default fields, constructor args echoed back, enum literals, `isinstance`/frozen-raises, or stub-raises-`NotImplementedError`. Drive a method/workflow and assert the outcome.
