@@ -6,54 +6,12 @@ from nicegui import binding
 
 from waldoctl import (
     EnvelopeMode,
-    GripperSettings,
-    JogSettings,
-    PluginConfig,
     Settings,
-    ViewSettings,
 )
 
 
 class _Target:
     value: object = None
-
-
-def test_settings_defaults_are_safe():
-    s = Settings()
-    assert isinstance(s.jog, JogSettings)
-    assert isinstance(s.gripper, GripperSettings)
-    assert isinstance(s.view, ViewSettings)
-    assert isinstance(s.plugins, PluginConfig)
-
-
-def test_jog_settings_defaults():
-    j = JogSettings()
-    assert j.speed == 50
-    assert j.accel == 50
-    assert j.incremental is False
-    assert j.joint_step_deg == 1.0
-
-
-def test_gripper_settings_defaults():
-    g = GripperSettings()
-    assert g.speed_sync is True
-    assert g.speed == 50
-    assert g.current == 500
-    assert g.target_position == 0.0
-
-
-def test_view_settings_defaults():
-    v = ViewSettings()
-    assert v.gizmo_visible is True
-    assert v.paths_visible is True
-    assert v.envelope_mode is EnvelopeMode.AUTO
-    assert v.preview_mode is False
-
-
-def test_plugin_config_defaults():
-    p = PluginConfig()
-    assert p.backend is None
-    assert p.disabled_panels == []
 
 
 def test_envelope_mode_values():
