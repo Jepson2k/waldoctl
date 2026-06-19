@@ -45,3 +45,19 @@ def test_plugin_config_backend_assignment():
     assert s.plugins.backend == "parol6"
     s.plugins.backend = None
     assert s.plugins.backend is None
+
+
+def test_binding_through_mcp_settings_enabled():
+    s = Settings()
+    t = _Target()
+    binding.bind_from(t, "value", s.mcp, "enabled", backward=lambda v: v)
+    assert t.value is False
+    s.mcp.enabled = True
+    assert t.value is True
+
+
+def test_mcp_settings_allow_motion_live_toggle():
+    s = Settings()
+    assert s.mcp.allow_motion is True
+    s.mcp.allow_motion = False
+    assert s.mcp.allow_motion is False

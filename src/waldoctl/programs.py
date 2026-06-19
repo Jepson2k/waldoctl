@@ -10,6 +10,7 @@ once with the Program and never swapped.
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -159,29 +160,207 @@ class PendingEdit:
     description: str = ""
 
 
+_HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+@dataclass(frozen=True, slots=True)
+class DiffHunk:
+    """One unified-diff hunk parsed into structured form.
+
+    Exposed publicly so frontends can build per-hunk decorations (red
+    strikethrough on removals, green widget for additions) without
+    re-implementing the parser.
+    """
+
+    old_start: int
+    """1-indexed line in the original source."""
+    body: tuple[tuple[str, str], ...]
+    """``(op, content)`` per line; ``op`` is one of ``' '``, ``'-'``, ``'+'``."""
+
+    @property
+    def start_index(self) -> int:
+        """0-indexed source line where this hunk begins applying.
+
+        A pure-insertion hunk (no context / removal lines) at ``old_start`` N>0
+        inserts *after* line N per unified-diff semantics (``git diff -U0``
+        emits ``@@ -N,0 +M @@`` for "insert after line N"), so it starts at
+        index N. Every other hunk — and the ``old_start == 0`` empty-file
+        insertion point — starts at ``old_start - 1`` (clamped at 0). Shared by
+        the apply path and frontend decoration builders so they can't diverge.
+        """
+        if self.old_start > 0 and all(op == "+" for op, _ in self.body):
+            return self.old_start
+        return max(self.old_start - 1, 0)
+
+
+def parse_unified_diff(diff: str) -> list[DiffHunk]:
+    """Parse unified-diff text into a list of hunks.
+
+    Pre-hunk headers (``--- a/...``, ``+++ b/...``) and ``\\ No newline at
+    end of file`` markers are ignored. We only consume what's between
+    ``@@`` headers, so MCP-emitted diffs without file headers work.
+    """
+    hunks: list[DiffHunk] = []
+    current_start: int | None = None
+    current_body: list[tuple[str, str]] = []
+    for line in diff.splitlines():
+        m = _HUNK_HEADER.match(line)
+        if m:
+            if current_start is not None:
+                hunks.append(DiffHunk(current_start, tuple(current_body)))
+            current_start = int(m.group(1))
+            current_body = []
+            continue
+        if current_start is None:
+            continue  # pre-hunk headers
+        if not line:
+            current_body.append((" ", ""))
+        elif line[0] in " -+":
+            current_body.append((line[0], line[1:]))
+        elif line[0] == "\\":
+            continue  # "\ No newline at end of file" — ignored
+        else:
+            raise ValueError(f"unrecognized diff line: {line!r}")
+    if current_start is not None:
+        hunks.append(DiffHunk(current_start, tuple(current_body)))
+    return hunks
+
+
+def _apply_unified_diff(source: str, diff: str) -> str:
+    """Apply a unified diff to ``source`` and return the new text.
+
+    Lines are reassembled with the source's dominant terminator (CRLF if the
+    source contains any, else LF), so a CRLF source stays CRLF and a "+"
+    addition never concatenates onto a context line that lacked a newline. The
+    source's final-newline state is preserved; a previously empty source that
+    gains content is terminated.
+
+    Raises ``ValueError`` if a hunk's context doesn't match the current
+    source (drift since the diff was proposed), if a hunk extends past
+    end-of-file, or if the diff is unparseable.
+    """
+    hunks = parse_unified_diff(diff)
+    if not hunks:
+        return source
+
+    src_lines = source.splitlines()  # bare content, terminators stripped
+    terminator = "\r\n" if "\r\n" in source else "\n"
+    out: list[str] = []
+    cursor = 0  # 0-indexed source position
+
+    for h in hunks:
+        target = h.start_index
+        if target < cursor:
+            raise ValueError(f"hunk @ source line {h.old_start} overlaps a prior hunk")
+        while cursor < target:
+            if cursor >= len(src_lines):
+                raise ValueError(
+                    f"hunk @ source line {h.old_start} starts past end of file"
+                )
+            out.append(src_lines[cursor])
+            cursor += 1
+        for op, content in h.body:
+            if op == " ":
+                if cursor >= len(src_lines):
+                    raise ValueError(f"context past end of source at line {cursor + 1}")
+                if src_lines[cursor] != content:
+                    raise ValueError(
+                        f"context mismatch at source line {cursor + 1}: "
+                        f"expected {content!r}, got {src_lines[cursor]!r}"
+                    )
+                out.append(src_lines[cursor])
+                cursor += 1
+            elif op == "-":
+                if cursor >= len(src_lines):
+                    raise ValueError("removal past end of source")
+                if src_lines[cursor] != content:
+                    raise ValueError(f"removal mismatch at source line {cursor + 1}")
+                cursor += 1
+            else:  # op == "+"
+                out.append(content)
+
+    while cursor < len(src_lines):
+        out.append(src_lines[cursor])
+        cursor += 1
+
+    text = terminator.join(out)
+    if out and (source.endswith(("\n", "\r")) or source == ""):
+        text += terminator
+    return text
+
+
 @binding.bindable_dataclass
 class EditFlow(ChangeNotifierMixin):
     """Claude-Code-style proposed-edits lifecycle.
 
     Plugins / LLMs / MCP tools propose edits as unified-diff text; the
-    frontend renders pending edits and the user approves or rejects each one
-    as a whole. Real implementation ships in stack PR 4 (CodeMirror diff
-    overlay + apply logic).
+    frontend renders pending edits and the user approves or rejects each
+    one as a whole. ``approve`` applies the diff to the parent program's
+    ``source`` in place.
+
+    Bound to its parent ``Program`` via :attr:`_program`, set by
+    ``Program.__post_init__``.
     """
 
     pending: list[PendingEdit] = field(default_factory=list)
+    _program: "Program | None" = field(default=None, repr=False)
 
     def propose(self, diff: str, description: str = "") -> EditId:
-        """Submit a proposed edit; returns its assigned id."""
-        raise NotImplementedError("ships in PR 4")
+        """Validate ``diff`` against the current source and queue it.
+
+        If an identical ``(diff, description)`` is already pending — e.g. an
+        MCP client retried after a transport timeout whose first call already
+        succeeded — the existing edit's id is returned instead of queuing a
+        duplicate that could never apply after the first is approved.
+
+        Raises ``ValueError`` if the diff doesn't parse or doesn't apply
+        cleanly, or ``RuntimeError`` if no parent program is attached.
+        """
+        if self._program is None:
+            raise RuntimeError("EditFlow not bound to a Program")
+        _apply_unified_diff(self._program.source, diff)  # validate now
+        for e in self.pending:
+            if e.diff == diff and e.description == description:
+                return e.id
+        edit_id = EditId(value=uuid.uuid4().hex[:12])
+        self.pending = [
+            *self.pending,
+            PendingEdit(
+                id=edit_id,
+                diff=diff,
+                proposed_at=time.time(),
+                description=description,
+            ),
+        ]
+        self.notify_changed()
+        return edit_id
 
     def approve(self, edit_id: EditId) -> None:
-        """Apply the edit's diff to the program's source."""
-        raise NotImplementedError("ships in PR 4")
+        """Apply the edit's diff to the program's source, then drop it.
+
+        Raises ``KeyError`` if ``edit_id`` is not pending, ``ValueError`` if
+        the source has drifted since ``propose``, or ``RuntimeError`` if no
+        parent program is attached.
+        """
+        if self._program is None:
+            raise RuntimeError("EditFlow not bound to a Program")
+        for i, e in enumerate(self.pending):
+            if e.id == edit_id:
+                new_source = _apply_unified_diff(self._program.source, e.diff)
+                self._program.source = new_source
+                self.pending = [*self.pending[:i], *self.pending[i + 1 :]]
+                self.notify_changed()
+                return
+        raise KeyError(edit_id)
 
     def reject(self, edit_id: EditId) -> None:
-        """Discard the edit without applying."""
-        raise NotImplementedError("ships in PR 4")
+        """Discard the edit without applying. Raises ``KeyError`` if unknown."""
+        for i, e in enumerate(self.pending):
+            if e.id == edit_id:
+                self.pending = [*self.pending[:i], *self.pending[i + 1 :]]
+                self.notify_changed()
+                return
+        raise KeyError(edit_id)
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +397,9 @@ class Program(ChangeNotifierMixin):
     execution: Execution = field(default_factory=Execution)
     recording: Recording = field(default_factory=Recording)
     edits: EditFlow = field(default_factory=EditFlow)
+
+    def __post_init__(self) -> None:
+        self.edits._program = self
 
     @property
     def is_dirty(self) -> bool:
