@@ -10,6 +10,12 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
     "numpy>=1.24",
+    # NiceGUI is a runtime dep so the public state classes can use
+    # @binding.bindable_dataclass for synchronous attribute propagation.
+    # Pinned to the same Jepson2k/nicegui fork SHA that Waldo-Commander uses so
+    # both resolve to the identical binding build — keep in sync with WC's pin
+    # (bumped together via /nicegui-combo-bump).
+    "nicegui @ git+https://github.com/Jepson2k/nicegui.git@4f3e88841666a98f289f00c7581f319576a636c0",
 ]
 
 [project.optional-dependencies]
