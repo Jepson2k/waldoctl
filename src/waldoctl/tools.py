@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 from typing import Any, Union
 
 from nicegui import binding
 
+logger = logging.getLogger(__name__)
 
-class ToolType(Enum):
-    """Tool categories the web commander has GUI support for."""
+
+class ToolType(StrEnum):
+    """Tool categories the web commander has GUI support for.
+
+    ``StrEnum`` so third-party tools can pass arbitrary category strings
+    via ``waldoctl.tools`` entry points while ``ToolType.GRIPPER == "gripper"``
+    keeps existing equality checks working.
+    """
 
     NONE = "none"
     """Bare flange or passive tool — TCP offset + 3D visual only, no panel."""
@@ -308,7 +316,7 @@ class ToolSpec(ABC):
         *,
         key: str,
         display_name: str,
-        tool_type: ToolType,
+        tool_type: str | ToolType,
         tcp_origin: tuple[float, float, float],
         tcp_rpy: tuple[float, float, float],
         description: str = "",
@@ -329,7 +337,7 @@ class ToolSpec(ABC):
     ) -> None:
         self._key = key
         self._display_name = display_name
-        self._tool_type = tool_type
+        self._tool_type = str(tool_type)
         self._tcp_origin = tcp_origin
         self._tcp_rpy = tcp_rpy
         self._description = description
@@ -360,8 +368,14 @@ class ToolSpec(ABC):
         return self._display_name
 
     @property
-    def tool_type(self) -> ToolType:
-        """GUI category — determines which panel (if any) is shown."""
+    def tool_type(self) -> str:
+        """GUI category — determines which panel (if any) is shown.
+
+        Returns a ``str`` so third-party tools can introduce new categories
+        beyond the built-in :class:`ToolType` values.  Comparison with
+        ``ToolType.GRIPPER`` etc. still works because ``ToolType`` is a
+        ``StrEnum``.
+        """
         return self._tool_type
 
     @property
@@ -695,6 +709,88 @@ class ToolsSpec(ABC):
         ...
 
     @abstractmethod
-    def by_type(self, tool_type: ToolType) -> tuple[ToolSpec, ...]:
-        """Return all tools matching the given category."""
+    def by_type(self, tool_type: str | ToolType) -> tuple[ToolSpec, ...]:
+        """Return all tools matching the given category.
+
+        Accepts a plain ``str`` so third-party tool categories work without
+        extending the built-in :class:`ToolType` enum.
+        """
         ...
+
+
+class ToolsCollection(ToolsSpec):
+    """Concrete dict-backed :class:`ToolsSpec` over a fixed tuple of tools."""
+
+    def __init__(
+        self, tools: tuple[ToolSpec, ...], default_key: str | None = None
+    ) -> None:
+        self._tools = tools
+        self._by_key = {t.key: t for t in tools}
+        self._default_key = default_key
+
+    @property
+    def available(self) -> tuple[ToolSpec, ...]:
+        return self._tools
+
+    @property
+    def default(self) -> ToolSpec:
+        if self._default_key is not None and self._default_key in self._by_key:
+            return self._by_key[self._default_key]
+        return self._tools[0]
+
+    def __getitem__(self, key: str) -> ToolSpec:
+        return self._by_key[key]
+
+    def __contains__(self, item: object) -> bool:
+        # ToolType is a StrEnum, so test it before the plain-str branch —
+        # otherwise a category would misroute to the by-key lookup.
+        if isinstance(item, ToolType):
+            return any(t.tool_type == item for t in self._tools)
+        if isinstance(item, str):
+            return item in self._by_key
+        return False
+
+    def by_type(self, tool_type: str | ToolType) -> tuple[ToolSpec, ...]:
+        return tuple(t for t in self._tools if t.tool_type == tool_type)
+
+
+class ComposedToolsSpec(ToolsCollection):
+    """A :class:`ToolsSpec` unioning a backend's native tools with plugin tools
+    registered via ``waldoctl.tools``. On key collision the native tool wins,
+    then the first plugin (matching the controller registry); ``default`` and
+    ordering follow the native collection, plugins appended."""
+
+    def __init__(self, native: ToolsSpec, plugin_tools: tuple[ToolSpec, ...]) -> None:
+        seen = {t.key for t in native.available}
+        accepted: list[ToolSpec] = []
+        for t in plugin_tools:
+            if t.key in seen:
+                logger.warning(
+                    "Plugin tool key %r collides with an existing tool; ignoring", t.key
+                )
+                continue
+            seen.add(t.key)
+            accepted.append(t)
+        super().__init__(
+            native.available + tuple(accepted), default_key=native.default.key
+        )
+
+
+def resolve_variant_tcp(
+    origin: tuple[float, float, float],
+    rpy: tuple[float, float, float],
+    variants: tuple[ToolVariant, ...],
+    variant_key: str | None,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """TCP (origin, rpy) for *variant_key*, overriding each field independently
+    and falling back to the tool-level value (and to it entirely when the key
+    doesn't match any variant)."""
+    if variant_key:
+        for v in variants:
+            if v.key == variant_key:
+                if v.tcp_origin is not None:
+                    origin = v.tcp_origin
+                if v.tcp_rpy is not None:
+                    rpy = v.tcp_rpy
+                break
+    return origin, rpy
