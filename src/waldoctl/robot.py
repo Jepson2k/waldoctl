@@ -65,13 +65,16 @@ class Robot(ABC):
         """Backend-native tools composed with plugins registered via
         ``waldoctl.tools``. Cached per instance (entry points are static)."""
         if self._tools_composed is None:
-            self._tools_composed = _compose_plugin_tools(self._native_tools)
+            self._tools_composed = _compose_plugin_tools(self.native_tools)
         return self._tools_composed
 
     @property
     @abstractmethod
-    def _native_tools(self) -> ToolsSpec:
-        """The backend's own tools; composed with plugin tools by :attr:`tools`."""
+    def native_tools(self) -> ToolsSpec:
+        """The backend's own tools; composed with plugin tools by :attr:`tools`.
+
+        Backends implement this; consumers read :attr:`tools` (which adds plugin
+        tools)."""
         ...
 
     @property

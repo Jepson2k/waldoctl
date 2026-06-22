@@ -15,7 +15,13 @@ from typing import Any, Protocol
 class SceneHandle(Protocol):
     def overlay(self, group_id: str) -> AbstractContextManager[Any]:
         """Batched context yielding the 3D scene to draw on; replaces *group_id*'s
-        prior contents on entry."""
+        prior contents on entry.
+
+        ``group_id`` is a **global** namespace shared by every plugin on the one
+        scene — pick a unique id (e.g. prefix with your ``Panel.id``) so two
+        plugins don't clobber each other's overlay. Safely no-ops (yields a null
+        scene) when no 3D scene is connected or it has been torn down.
+        """
         ...
 
     def clear(self, group_id: str) -> None:

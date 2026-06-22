@@ -335,7 +335,9 @@ class ToolSpec(ABC):
         action_r_mode: ToggleMode = ToggleMode.TRIGGER,
         camera_spec: CameraSpec | None = None,
     ) -> None:
-        self._key = key
+        # Canonicalize to the server-side form (strip + upper) so a plugin tool
+        # registered with a lowercase key is still selectable.
+        self._key = key.strip().upper()
         self._display_name = display_name
         self._tool_type = str(tool_type)
         self._tcp_origin = tcp_origin
