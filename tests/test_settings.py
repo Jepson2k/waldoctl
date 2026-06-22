@@ -54,10 +54,3 @@ def test_binding_through_mcp_settings_enabled():
     assert t.value is False
     s.mcp.enabled = True
     assert t.value is True
-
-
-def test_mcp_settings_allow_motion_live_toggle():
-    s = Settings()
-    assert s.mcp.allow_motion is True
-    s.mcp.allow_motion = False
-    assert s.mcp.allow_motion is False

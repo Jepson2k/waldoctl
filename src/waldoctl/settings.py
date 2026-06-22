@@ -91,8 +91,10 @@ class McpSettings(ChangeNotifierMixin):
     exposing the public ``commander.*`` surface as MCP tools so an LLM
     client (Claude Desktop, etc.) can drive the robot. ``enabled``, ``host``,
     and ``port`` bind at server start — changing them needs a restart.
-    ``allow_motion`` is consulted on every motion tool call so the user can
-    flip it live without restart.
+
+    Hardware-motion safety is enforced by the host's per-session GUI consent
+    gate (the first real move of an MCP session needs a human OK), not a
+    persistent toggle.
     """
 
     enabled: bool = False
@@ -102,9 +104,6 @@ class McpSettings(ChangeNotifierMixin):
     machines on a trusted network reach the server."""
     port: int = 7400
     """Streamable-HTTP port the FastMCP server listens on."""
-    allow_motion: bool = True
-    """When False, motion tools (``move_j``, ``jog_*``, ``home``…) refuse
-    cleanly. Read state and code edits are unaffected."""
 
 
 # ---------------------------------------------------------------------------
