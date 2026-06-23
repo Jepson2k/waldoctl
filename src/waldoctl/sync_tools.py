@@ -16,7 +16,6 @@ from waldoctl.tools import (
     GripperType,
     PneumaticGripperTool,
     ToolSpec,
-    ToolType,
 )
 
 
@@ -49,7 +48,7 @@ class SyncGripperTool(GripperTool):
         return self._async.display_name
 
     @property
-    def tool_type(self) -> ToolType:
+    def tool_type(self) -> str:
         return self._async.tool_type
 
     @property
@@ -106,7 +105,7 @@ class SyncPneumaticGripperTool(PneumaticGripperTool):
         return self._async.display_name
 
     @property
-    def tool_type(self) -> ToolType:
+    def tool_type(self) -> str:
         return self._async.tool_type
 
     @property
@@ -162,7 +161,7 @@ class SyncElectricGripperTool(ElectricGripperTool):
         return self._async.display_name
 
     @property
-    def tool_type(self) -> ToolType:
+    def tool_type(self) -> str:
         return self._async.tool_type
 
     @property

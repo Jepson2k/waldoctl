@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
@@ -9,10 +10,26 @@ import numpy as np
 from numpy.typing import NDArray
 
 from waldoctl.client import RobotClient
+from waldoctl.discovery import iter_plugin_tool_specs
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import CartesianKinodynamicLimits, JointsSpec
 from waldoctl.results import IKResult
-from waldoctl.tools import ToolsSpec
+from waldoctl.tools import ComposedToolsSpec, ToolsSpec
+
+logger = logging.getLogger(__name__)
+
+
+def _compose_plugin_tools(native: ToolsSpec) -> ToolsSpec:
+    """Compose *native* backend tools with plugin tools from ``waldoctl.tools``."""
+    plugin_specs = iter_plugin_tool_specs()
+    if not plugin_specs:
+        return native
+    logger.info(
+        "Loaded %d plugin tool(s) via waldoctl.tools: %s",
+        len(plugin_specs),
+        [t.key for t in plugin_specs],
+    )
+    return ComposedToolsSpec(native, tuple(plugin_specs))
 
 
 class Robot(ABC):
@@ -41,10 +58,23 @@ class Robot(ABC):
         """Joint configuration: count, names, limits, home position."""
         ...
 
+    _tools_composed: ToolsSpec | None = None
+
+    @property
+    def tools(self) -> ToolsSpec:
+        """Backend-native tools composed with plugins registered via
+        ``waldoctl.tools``. Cached per instance (entry points are static)."""
+        if self._tools_composed is None:
+            self._tools_composed = _compose_plugin_tools(self.native_tools)
+        return self._tools_composed
+
     @property
     @abstractmethod
-    def tools(self) -> ToolsSpec:
-        """Available end-effector tools and their capabilities."""
+    def native_tools(self) -> ToolsSpec:
+        """The backend's own tools; composed with plugin tools by :attr:`tools`.
+
+        Backends implement this; consumers read :attr:`tools` (which adds plugin
+        tools)."""
         ...
 
     @property
