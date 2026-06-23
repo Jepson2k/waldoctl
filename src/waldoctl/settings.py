@@ -17,22 +17,12 @@ from nicegui import binding
 from waldoctl.notify import ChangeNotifierMixin
 
 
-# ---------------------------------------------------------------------------
-# EnvelopeMode — workspace-envelope visibility tri-state
-# ---------------------------------------------------------------------------
-
-
 class EnvelopeMode(Enum):
     """Workspace envelope visibility modes."""
 
     AUTO = "auto"
     ON = "on"
     OFF = "off"
-
-
-# ---------------------------------------------------------------------------
-# Settings sub-objects
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass
@@ -92,11 +82,6 @@ class PluginConfig(ChangeNotifierMixin):
     chooser."""
     disabled_panels: list[str] = field(default_factory=list)
     """Plugin ids the user has turned off. Panel discovery skips these."""
-
-
-# ---------------------------------------------------------------------------
-# Settings — the locator's `settings` attribute
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass

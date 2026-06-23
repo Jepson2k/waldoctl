@@ -109,14 +109,11 @@ from waldoctl.types import Axis, Frame
 __version__ = _get_version("waldoctl")
 
 
-# ---------------------------------------------------------------------------
-# Commander locator (PEP 562 module-level __getattr__)
-# ---------------------------------------------------------------------------
-# `waldoctl.commander` is typed as `Commander` (non-Optional). The host
-# application registers a live instance via `_set_commander` during startup;
-# accessing `commander` before then raises `RuntimeError` with a clear message.
-# Same shape as Flask's `current_app` or NiceGUI's `app.storage`: consumers
-# never write `if commander is not None`.
+# Commander locator (PEP 562 module-level __getattr__): `waldoctl.commander` is
+# typed as `Commander` (non-Optional). The host registers a live instance via
+# `_set_commander` during startup; accessing it before then raises a clear
+# `RuntimeError`. Same shape as Flask's `current_app` — consumers never write
+# `if commander is not None`.
 
 _commander_instance: Commander | None = None  # private slot; do not access directly
 

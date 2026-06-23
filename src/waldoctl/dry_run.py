@@ -20,8 +20,6 @@ class DryRunClient(Protocol):
     ``angles()``, ``pose()``, ``flush()``.
     """
 
-    # -- Required motion commands -------------------------------------------
-
     def home(self, **kwargs: Any) -> DryRunResult | None: ...
 
     def move_j(
@@ -45,17 +43,11 @@ class DryRunClient(Protocol):
         **kwargs: Any,
     ) -> DryRunResult | None: ...
 
-    # -- Required queries ---------------------------------------------------
-
     def angles(self) -> list[float]: ...
 
     def pose(self) -> list[float]: ...
 
-    # -- Required tool access -----------------------------------------------
-
     @property
     def tool(self) -> Any: ...
-
-    # -- Required lifecycle -------------------------------------------------
 
     def flush(self) -> list[DryRunResult]: ...

@@ -25,11 +25,6 @@ from nicegui import binding
 from waldoctl.notify import ChangeNotifierMixin
 
 
-# ---------------------------------------------------------------------------
-# Frozen-ish data shapes — simulation results
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class ProgramTarget:
     """One move-target produced by the dry run, addressed by editor line."""
@@ -97,11 +92,6 @@ class ToolSelection:
     line_number: int = 0
 
 
-# ---------------------------------------------------------------------------
-# Playback — continuously-mutated playback control state
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class Playback(ChangeNotifierMixin):
     """Playback control state for one program's dry-run.
@@ -140,11 +130,6 @@ class Playback(ChangeNotifierMixin):
     """False = at start of segment; True = at end. Together with
     ``executing_step_index`` this distinguishes "started step N" from
     "completed step N" for step-channel listeners."""
-
-
-# ---------------------------------------------------------------------------
-# DryRun — per-program simulation result + playback
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass(
