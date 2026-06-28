@@ -37,6 +37,7 @@ from waldoctl.joints import (
     PositionLimits,
 )
 from waldoctl.programs import (
+    DiffHunk,
     EditFlow,
     EditId,
     Execution,
@@ -47,6 +48,7 @@ from waldoctl.programs import (
     ProgramTabs,
     RecordedProgram,
     Recording,
+    parse_unified_diff,
 )
 from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
 from waldoctl.robot import Robot
@@ -68,6 +70,7 @@ from waldoctl.settings import (
     EnvelopeMode,
     GripperSettings,
     JogSettings,
+    McpSettings,
     PluginConfig,
     Settings,
     ViewSettings,
@@ -250,6 +253,8 @@ __all__ = [
     "EditFlow",
     "EditId",
     "PendingEdit",
+    "DiffHunk",
+    "parse_unified_diff",
     # Dry-run surface
     "DryRun",
     "Playback",
@@ -263,5 +268,6 @@ __all__ = [
     "GripperSettings",
     "ViewSettings",
     "PluginConfig",
+    "McpSettings",
     "EnvelopeMode",
 ]

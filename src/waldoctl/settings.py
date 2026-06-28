@@ -1,7 +1,8 @@
-"""User-facing settings — jog / gripper / view / plugins.
+"""User-facing settings — jog / gripper / view / plugins / mcp.
 
 Sub-objects (``JogSettings``, ``GripperSettings``, ``ViewSettings``,
-``PluginConfig``) hold leaf preferences that the UI binds to directly.
+``PluginConfig``, ``McpSettings``) hold leaf preferences that the UI binds to
+directly.
 
 **Mutate-in-place invariant**: sub-objects are constructed once and mutated;
 never reassigned.
@@ -63,8 +64,6 @@ class ViewSettings(ChangeNotifierMixin):
     """Show trajectory paths in the scene."""
     envelope_mode: EnvelopeMode = EnvelopeMode.AUTO
     """Workspace envelope visibility (AUTO / ON / OFF)."""
-    preview_mode: bool = False
-    """True = dry-run preview, False = real-hardware execute intent."""
 
 
 @binding.bindable_dataclass
@@ -85,11 +84,40 @@ class PluginConfig(ChangeNotifierMixin):
 
 
 @binding.bindable_dataclass
+class McpSettings(ChangeNotifierMixin):
+    """MCP (Model Context Protocol) server configuration.
+
+    The host application starts a FastMCP server when ``enabled`` is True,
+    exposing the public ``commander.*`` surface as MCP tools so an LLM
+    client (Claude Desktop, etc.) can drive the robot. ``enabled``, ``host``,
+    and ``port`` bind at server start — changing them needs a restart.
+    ``allow_motion`` is consulted on every motion tool call so the user can
+    flip it live without restart.
+    """
+
+    enabled: bool = False
+    """Off by default — opting in surfaces the public API to outside clients."""
+    host: str = "127.0.0.1"
+    """Loopback by default; set to a LAN address (or ``0.0.0.0``) to let other
+    machines on a trusted network reach the server."""
+    port: int = 7400
+    """Streamable-HTTP port the FastMCP server listens on."""
+    allow_motion: bool = True
+    """When False, motion tools (``move_j``, ``jog_*``, ``home``…) refuse
+    cleanly. Read state and code edits are unaffected."""
+
+
+# ---------------------------------------------------------------------------
+# Settings — the locator's `settings` attribute
+# ---------------------------------------------------------------------------
+
+
+@binding.bindable_dataclass
 class Settings(ChangeNotifierMixin):
     """User-facing preferences and configuration — the public ``commander.settings``.
 
-    Sub-objects group preferences by domain (jog / gripper / view / plugins).
-    UI sliders, switches, and dropdowns bind to leaf fields on the nested
+    Sub-objects group preferences by domain (jog / gripper / view / plugins /
+    mcp). UI sliders, switches, and dropdowns bind to leaf fields on the nested
     objects (``bind_value(commander.settings.jog, "speed")``).
 
     **Mutate-in-place invariant**: the sub-objects are constructed once and
@@ -100,3 +128,4 @@ class Settings(ChangeNotifierMixin):
     gripper: GripperSettings = field(default_factory=GripperSettings)
     view: ViewSettings = field(default_factory=ViewSettings)
     plugins: PluginConfig = field(default_factory=PluginConfig)
+    mcp: McpSettings = field(default_factory=McpSettings)
