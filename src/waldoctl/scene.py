@@ -11,8 +11,15 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 from typing import Any, Protocol
 
+from waldoctl.shapes import Shape
+
 
 class SceneHandle(Protocol):
+    shapes: list[Shape]
+    """Workspace keep-out / marker shapes (the collision world). Set this (or
+    call ``commander.client.set_shapes``) to add barriers; the host renders them
+    and pushes the collision-enabled ones to the backend's checkers."""
+
     def overlay(self, group_id: str) -> AbstractContextManager[Any]:
         """Batched context yielding the 3D scene to draw on; replaces *group_id*'s
         prior contents on entry.

@@ -27,6 +27,18 @@ from waldoctl.dry_run_state import (
 )
 from waldoctl.panels import Panel, PanelSlot
 from waldoctl.scene import SceneHandle
+from waldoctl.shapes import (
+    Box,
+    Capsule,
+    Cone,
+    Cylinder,
+    Ellipsoid,
+    Plane,
+    Shape,
+    ShapeBase,
+    Sphere,
+    shape_from_wire,
+)
 from waldoctl.joints import (
     CartesianKinodynamicLimits,
     HomePosition,
@@ -223,6 +235,17 @@ __all__ = [
     "Panel",
     "PanelSlot",
     "SceneHandle",
+    # Workspace shapes (collision world)
+    "Shape",
+    "ShapeBase",
+    "Box",
+    "Sphere",
+    "Cylinder",
+    "Capsule",
+    "Cone",
+    "Ellipsoid",
+    "Plane",
+    "shape_from_wire",
     # Version
     "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)

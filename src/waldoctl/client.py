@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+from waldoctl.shapes import Shape
 from waldoctl.status import ActivityResult, PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
@@ -396,6 +397,20 @@ class RobotClient(ABC):
 
     async def is_freedrive(self) -> bool:
         """Query whether freedrive / teach mode is active."""
+        raise NotImplementedError
+
+    async def set_shapes(self, shapes: list[Shape]) -> int:
+        """Replace the workspace keep-out / marker shapes (the collision world).
+
+        Collision-enabled shapes are added to the backend's collision checkers so
+        motion is blocked against them; an empty list clears all shapes.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_shapes([Box(name="table", x=0.6, y=0.4, z=0.02,
+                                pose=(0.3, 0, -0.01, 0, 0, 0))])
+        """
         raise NotImplementedError
 
     # -- Queries (required) -------------------------------------------------
