@@ -246,6 +246,29 @@ class Robot(ABC):
         """Batch IK: ``(N, 6)`` poses -> list of ``IKResult`` (radians)."""
         ...
 
+    # -- Collision (concrete disabled-defaults; backends with a checker override) -
+
+    @property
+    def has_collision_checking(self) -> bool:
+        """Whether self-collision checking is available."""
+        return False
+
+    def in_collision(self, q_rad: NDArray[np.float64]) -> bool:
+        """Whether ``q_rad`` (radians) is in self-collision."""
+        return False
+
+    def colliding_pairs(self, q_rad: NDArray[np.float64]) -> list[tuple[str, str]]:
+        """Colliding (name, name) geometry/link pairs at ``q_rad``."""
+        return []
+
+    def check_trajectory(self, q_path_rad: NDArray[np.float64]) -> int:
+        """First colliding row index in ``(N, num_joints)`` path, or -1 if clear."""
+        return -1
+
+    def min_distance(self, q_rad: NDArray[np.float64]) -> float:
+        """Min clearance at ``q_rad`` (signed; negative = penetration)."""
+        return float("inf")
+
     # -- Lifecycle ----------------------------------------------------------
 
     @abstractmethod

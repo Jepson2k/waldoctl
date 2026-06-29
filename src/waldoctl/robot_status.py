@@ -256,6 +256,25 @@ class Action(ChangeNotifierMixin):
 
 
 # ---------------------------------------------------------------------------
+# Collision — self-collision visualization surface
+# ---------------------------------------------------------------------------
+
+
+@binding.bindable_dataclass
+class CollisionStatus(ChangeNotifierMixin):
+    """Set when a motion is blocked/stopped because it would self-collide.
+
+    ``pairs`` is captured at the *predicted* colliding config — the guard halts
+    before penetrating, so the robot's stopped config is collision-free; the
+    frontend maps the (name, name) geometry/link pairs to scene meshes and tints
+    them red. ``pairs`` is replaced wholesale per change so its binding fires.
+    """
+
+    active: bool = False
+    pairs: list[tuple[str, str]] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # RobotStatus — the locator's `status` attribute
 # ---------------------------------------------------------------------------
 
@@ -268,9 +287,9 @@ class RobotStatus(ChangeNotifierMixin):
     panel / MCP tool / extension via ``commander.status.<sub>.<leaf>``.
 
     **Mutate-in-place invariant**: the sub-objects (``pose``, ``joints``,
-    ``io``, ``tool``, ``action``) are constructed once and mutated in place.
-    Reassigning any of them orphans every binding registered against the
-    previous instance.
+    ``io``, ``tool``, ``action``, ``collision``) are constructed once and
+    mutated in place. Reassigning any of them orphans every binding registered
+    against the previous instance.
     """
 
     connected: bool = False
@@ -281,4 +300,5 @@ class RobotStatus(ChangeNotifierMixin):
     io: IO = field(default_factory=IO)
     tool: ToolStatus = field(default_factory=ToolStatus)
     action: Action = field(default_factory=Action)
+    collision: CollisionStatus = field(default_factory=CollisionStatus)
     last_update: float = 0.0
