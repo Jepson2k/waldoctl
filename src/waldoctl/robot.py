@@ -14,6 +14,7 @@ from waldoctl.discovery import iter_plugin_tool_specs
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import CartesianKinodynamicLimits, JointsSpec
 from waldoctl.results import IKResult
+from waldoctl.shapes import Shape
 from waldoctl.tools import ComposedToolsSpec, ToolsSpec
 
 logger = logging.getLogger(__name__)
@@ -250,11 +251,12 @@ class Robot(ABC):
 
     @property
     def has_collision_checking(self) -> bool:
-        """Whether self-collision checking is available."""
+        """Whether collision checking (self + workspace shapes) is available."""
         return False
 
     def in_collision(self, q_rad: NDArray[np.float64]) -> bool:
-        """Whether ``q_rad`` (radians) is in self-collision."""
+        """Whether ``q_rad`` (radians) collides — with itself, the attached
+        tool, or a workspace keep-out shape."""
         return False
 
     def colliding_pairs(self, q_rad: NDArray[np.float64]) -> list[tuple[str, str]]:
@@ -268,6 +270,14 @@ class Robot(ABC):
     def min_distance(self, q_rad: NDArray[np.float64]) -> float:
         """Min clearance at ``q_rad`` (signed; negative = penetration)."""
         return float("inf")
+
+    def apply_shapes(self, shapes: list[Shape]) -> None:
+        """Apply workspace keep-out shapes to this process's local checker.
+
+        Local-only twin of ``RobotClient.set_shapes`` (which updates the
+        *backend's* checkers) — feeds client-side preview / editing-pose
+        collision queries. No-op on backends without collision checking.
+        """
 
     # -- Lifecycle ----------------------------------------------------------
 

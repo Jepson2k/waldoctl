@@ -16,9 +16,11 @@ from waldoctl.shapes import Shape
 
 class SceneHandle(Protocol):
     shapes: list[Shape]
-    """Workspace keep-out / marker shapes (the collision world). Set this (or
-    call ``commander.client.set_shapes``) to add barriers; the host renders them
-    and pushes the collision-enabled ones to the backend's checkers."""
+    """Workspace keep-out / marker shapes (the collision world). **Reassign the
+    whole list** (``scene.shapes = [*scene.shapes, box]``) — in-place mutation
+    (``.append``) is invisible to the host. On reassignment the host renders the
+    shapes and pushes the collision-enabled ones to the backend's checkers
+    (``commander.client.set_shapes`` is the underlying command)."""
 
     def overlay(self, group_id: str) -> AbstractContextManager[Any]:
         """Batched context yielding the 3D scene to draw on; replaces *group_id*'s

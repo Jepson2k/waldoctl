@@ -27,7 +27,8 @@ class ShapeBase:
     collision: bool = True
     """In the collision world when True; a visual-only marker when False."""
     margin: float | None = None
-    """Per-shape clearance override; ``None`` uses the global clearance."""
+    """Reserved for a future per-shape clearance override; not yet applied —
+    backends currently use their global clearance for every shape."""
 
     @property
     def kind(self) -> str:

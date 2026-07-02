@@ -256,13 +256,14 @@ class Action(ChangeNotifierMixin):
 
 
 # ---------------------------------------------------------------------------
-# Collision — self-collision visualization surface
+# Collision — blocked-motion visualization surface
 # ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass
 class CollisionStatus(ChangeNotifierMixin):
-    """Set when a motion is blocked/stopped because it would self-collide.
+    """Set when a motion is blocked/stopped because it would collide — with
+    itself, the attached tool, or a workspace keep-out shape.
 
     ``pairs`` is captured at the *predicted* colliding config — the guard halts
     before penetrating, so the robot's stopped config is collision-free; the

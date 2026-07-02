@@ -64,6 +64,9 @@ class PathSegment:
     timing_feasible: bool = True
     checkpoint: str | None = None
     is_travel: bool = False
+    # First colliding waypoint index in joint_trajectory (host-side collision
+    # check against the local checker), or None when clear / not checked.
+    collision_step: int | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "PathSegment":
