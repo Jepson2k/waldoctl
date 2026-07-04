@@ -117,6 +117,11 @@ def shape_from_wire(
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
     cls = _REGISTRY[kind]
     pnames = [f.name for f in fields(cls) if f.name not in _COMMON]
+    if len(params) != len(pnames):
+        raise ValueError(
+            f"{kind!r} takes {len(pnames)} param(s), got {len(params)} — "
+            "wire/persisted data does not match this waldoctl version"
+        )
     obj = cls(
         name=name,
         pose=cast(Pose6, tuple(pose)),

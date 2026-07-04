@@ -18,3 +18,15 @@ def test_kind_is_lowercased_classname_and_params_are_in_field_order():
     wire = Box(name="b", x=1.0, y=2.0, z=3.0).to_wire()
     assert wire[0] == "box"
     assert wire[1] == [1.0, 2.0, 3.0]
+
+
+def test_shape_from_wire_rejects_wrong_param_count():
+    """Schema-skewed wire data must raise, not silently build a smaller shape."""
+    import pytest
+
+    from waldoctl import shape_from_wire
+
+    with pytest.raises(ValueError, match="takes 1 param"):
+        shape_from_wire("sphere", [0.1, 0.2], [0, 0, 0, 0, 0, 0], True, None, "s")
+    with pytest.raises(ValueError):
+        shape_from_wire("box", [0.1], [0, 0, 0, 0, 0, 0], True, None, "b")
