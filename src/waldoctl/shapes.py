@@ -10,6 +10,7 @@ vocabulary and pinokin's generic ``add_obstacle``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, fields
 from typing import cast
 
@@ -27,8 +28,36 @@ class ShapeBase:
     collision: bool = True
     """In the collision world when True; a visual-only marker when False."""
     margin: float | None = None
-    """Reserved for a future per-shape clearance override; not yet applied —
-    backends currently use their global clearance for every shape."""
+    """Per-shape clearance override (metres): collision pairs against this
+    shape trigger at this standoff distance.  None → the robot's global
+    clearance applies."""
+
+    def __post_init__(self) -> None:
+        if len(self.pose) != 6 or not all(math.isfinite(v) for v in self.pose):
+            raise ValueError(
+                f"{self.kind} {self.name!r}: pose must be 6 finite numbers, "
+                f"got {self.pose!r}"
+            )
+        if self.margin is not None and not (
+            math.isfinite(self.margin) and self.margin >= 0
+        ):
+            raise ValueError(
+                f"{self.kind} {self.name!r}: margin must be None or finite >= 0, "
+                f"got {self.margin!r}"
+            )
+        self._validate_params()
+
+    def _validate_params(self) -> None:
+        """Default rule: every coal param is a dimension — finite and > 0."""
+        for f in fields(self):
+            if f.name in _COMMON:
+                continue
+            v = getattr(self, f.name)
+            if not (math.isfinite(v) and v > 0):
+                raise ValueError(
+                    f"{self.kind} {self.name!r}: {f.name} must be finite and > 0, "
+                    f"got {v!r}"
+                )
 
     @property
     def kind(self) -> str:
@@ -97,6 +126,17 @@ class Plane(ShapeBase):
     nz: float
     offset: float
 
+    def _validate_params(self) -> None:
+        """Params are a normal + offset, not dimensions: finite, normal non-zero."""
+        for name in ("nx", "ny", "nz", "offset"):
+            v = getattr(self, name)
+            if not math.isfinite(v):
+                raise ValueError(
+                    f"plane {self.name!r}: {name} must be finite, got {v!r}"
+                )
+        if self.nx == 0.0 and self.ny == 0.0 and self.nz == 0.0:
+            raise ValueError(f"plane {self.name!r}: normal must be non-zero")
+
 
 Shape = Box | Sphere | Cylinder | Capsule | Cone | Ellipsoid | Plane
 
@@ -130,3 +170,16 @@ def shape_from_wire(
         **dict(zip(pnames, params)),
     )
     return cast(Shape, obj)
+
+
+@dataclass(frozen=True)
+class ShapeWorld:
+    """A backend's applied collision world, split by layer (readback truth).
+
+    ``installation`` comes from the backend's robot config — every program
+    inherits it and ``set_shapes`` cannot change it.  ``program`` is the
+    last-applied program layer (last-write-wins, persists after program end).
+    """
+
+    installation: tuple[Shape, ...] = ()
+    program: tuple[Shape, ...] = ()

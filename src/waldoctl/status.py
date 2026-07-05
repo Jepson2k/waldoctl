@@ -59,7 +59,13 @@ class StatusBuffer(Protocol):
     collision_active: bool
     """Whether a motion was blocked/stopped by a predicted collision."""
     collision_pairs: list[tuple[str, str]]
-    """Colliding geometry/link name pairs at the predicted colliding config."""
+    """Colliding pairs at the predicted colliding config.  Names are URDF link
+    names, ``shape:<name>`` (program keep-out), ``install:<name>``
+    (installation keep-out), or ``tool:<key>:<part>`` (attached tool geometry)
+    — never backend-internal geometry identifiers."""
+    scene_epoch: int
+    """Monotonic counter bumped on every collision-world change; displays
+    re-query ``RobotClient.shapes()`` when it moves."""
 
 
 @dataclass

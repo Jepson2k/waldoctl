@@ -266,9 +266,12 @@ class CollisionStatus(ChangeNotifierMixin):
     itself, the attached tool, or a workspace keep-out shape.
 
     ``pairs`` is captured at the *predicted* colliding config — the guard halts
-    before penetrating, so the robot's stopped config is collision-free; the
-    frontend maps the (name, name) geometry/link pairs to scene meshes and tints
-    them red. ``pairs`` is replaced wholesale per change so its binding fires.
+    before penetrating, so the robot's stopped config is collision-free.  Each
+    name is a URDF link name, ``shape:<name>`` (program keep-out),
+    ``install:<name>`` (installation keep-out), or ``tool:<key>:<part>``
+    (attached tool geometry) — never a backend-internal geometry identifier —
+    so the frontend maps pairs to scene meshes without string heuristics.
+    ``pairs`` is replaced wholesale per change so its binding fires.
     """
 
     active: bool = False

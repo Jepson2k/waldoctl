@@ -100,6 +100,20 @@ class ToolSelection:
     line_number: int = 0
 
 
+@dataclass
+class ShapeChange:
+    """One ``set_shapes()`` call captured during simulation.
+
+    Replayed at segment boundaries during collision marking so each segment
+    is checked against the world that was active at its point in the program
+    (mirrors :class:`ToolSelection`).
+    """
+
+    shapes: tuple = ()
+    segment_index: int = -1
+    line_number: int = 0
+
+
 # ---------------------------------------------------------------------------
 # Playback — continuously-mutated playback control state
 # ---------------------------------------------------------------------------

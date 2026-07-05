@@ -23,6 +23,7 @@ from waldoctl.dry_run_state import (
     Playback,
     ProgramTarget,
     ToolAction,
+    ShapeChange,
     ToolSelection,
 )
 from waldoctl.panels import Panel, PanelSlot
@@ -36,6 +37,7 @@ from waldoctl.shapes import (
     Plane,
     Shape,
     ShapeBase,
+    ShapeWorld,
     Sphere,
     shape_from_wire,
 )
@@ -245,6 +247,7 @@ __all__ = [
     "Cone",
     "Ellipsoid",
     "Plane",
+    "ShapeWorld",
     "shape_from_wire",
     # Version
     "__version__",
@@ -289,6 +292,7 @@ __all__ = [
     "ProgramTarget",
     "PathSegment",
     "ToolAction",
+    "ShapeChange",
     "ToolSelection",
     # Settings surface
     "Settings",

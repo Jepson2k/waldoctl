@@ -16,11 +16,30 @@ from waldoctl.shapes import Shape
 
 class SceneHandle(Protocol):
     shapes: list[Shape]
-    """Workspace keep-out / marker shapes (the collision world). **Reassign the
-    whole list** (``scene.shapes = [*scene.shapes, box]``) — in-place mutation
-    (``.append``) is invisible to the host. On reassignment the host renders the
-    shapes and pushes the collision-enabled ones to the backend's checkers
-    (``commander.client.set_shapes`` is the underlying command)."""
+    """Program-layer keep-out / marker shapes (the collision world). **Reassign
+    the whole list** (``scene.shapes = [*scene.shapes, box]``) — in-place
+    mutation (``.append``) is invisible to the host. Reassignment is a request:
+    the host renders it as a draft, pushes it with the acknowledged
+    ``commander.client.set_shapes``, and confirms it against backend readback."""
+
+    @property
+    def installation(self) -> tuple[Shape, ...]:
+        """Installation-layer shapes (backend robot config) per last readback."""
+        ...
+
+    @property
+    def confirmed(self) -> bool:
+        """Whether the displayed program layer matches backend readback."""
+        ...
+
+    def render(self) -> None:
+        """(Re)draw the shape layers on the live scene (no-op without one)."""
+        ...
+
+    async def refresh_from_backend(self) -> None:
+        """Adopt the backend's applied collision world (readback truth) for the
+        display and the local preview checker."""
+        ...
 
     def overlay(self, group_id: str) -> AbstractContextManager[Any]:
         """Batched context yielding the 3D scene to draw on; replaces *group_id*'s
