@@ -422,6 +422,11 @@ class RobotClient(ABC):
         shapes.  Installation-layer shapes (declared in the backend's robot
         config) are unaffected — programs inherit them and cannot remove them.
 
+        The change also invalidates committed motion: the backend re-guards
+        the currently-streaming trajectory's remaining path and every queued
+        trajectory before it starts, halting with a collision error rather
+        than driving into a keep-out declared after the motion was planned.
+
         Returns ``1`` only after the backend confirms the world was applied;
         ``0`` if unconfirmed, ``< 0`` if the backend rejected the shapes (see
         the class docstring's return-code convention).
