@@ -59,6 +59,9 @@ class PathSegment:
     timing_feasible: bool = True
     checkpoint: str | None = None
     is_travel: bool = False
+    # First colliding waypoint index in joint_trajectory (host-side collision
+    # check against the local checker), or None when clear / not checked.
+    collision_step: int | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "PathSegment":
@@ -92,6 +95,20 @@ class ToolSelection:
     line_number: int = 0
 
 
+@dataclass
+class ShapeChange:
+    """One ``set_shapes()`` call captured during simulation.
+
+    Replayed at segment boundaries during collision marking so each segment
+    is checked against the world that was active at its point in the program
+    (mirrors :class:`ToolSelection`).
+    """
+
+    shapes: tuple = ()
+    segment_index: int = -1
+    line_number: int = 0
+
+
 @binding.bindable_dataclass
 class Playback(ChangeNotifierMixin):
     """Playback control state for one program's dry-run.
@@ -104,10 +121,10 @@ class Playback(ChangeNotifierMixin):
     host application updates these to distinguish "step N just started" from
     "step N just completed".
 
-    The :meth:`ChangeNotifierMixin.add_step_listener` channel on this object is
-    reserved for that high-frequency stream; the current host routes step
-    events through its own internal channel rather than firing this one, so do
-    not rely on per-program step notifications here yet.
+    The :meth:`ChangeNotifierMixin.add_step_listener` channel on this object
+    carries that high-frequency stream: the host fires it whenever the
+    ``executing_step_*`` fields advance (script start, step start, step
+    complete), so plugins can react per-step on this program alone.
     """
 
     is_playing: bool = False
