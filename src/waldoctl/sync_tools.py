@@ -1,8 +1,7 @@
 """Synchronous tool wrappers — per-type, mirrors the sync/async client split.
 
-Each wrapper inherits from its async counterpart so ``isinstance`` checks
-work on both sides.  Abstract properties are redeclared as one-liner
-delegations; action methods wrap the async version with the caller-supplied
+Each wrapper inherits from its async counterpart so ``isinstance`` checks work
+on both sides. Action methods wrap the async version with the caller-supplied
 ``run`` function (typically ``parol6.client.sync_client._run``).
 """
 
@@ -19,11 +18,6 @@ from waldoctl.tools import (
 )
 
 
-# ---------------------------------------------------------------------------
-# SyncGripperTool
-# ---------------------------------------------------------------------------
-
-
 class SyncGripperTool(GripperTool):
     """Sync wrapper for any ``GripperTool``."""
 
@@ -36,8 +30,6 @@ class SyncGripperTool(GripperTool):
         if async_tool is not None:
             return getattr(async_tool, name)
         raise AttributeError(name)
-
-    # -- abstract property delegations --
 
     @property
     def key(self) -> str:
@@ -63,8 +55,6 @@ class SyncGripperTool(GripperTool):
     def gripper_type(self) -> GripperType:
         return self._async.gripper_type
 
-    # -- action methods --
-
     def set_position(self, position: float, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.set_position(position, **kwargs))
 
@@ -76,11 +66,6 @@ class SyncGripperTool(GripperTool):
 
     def calibrate(self, **kwargs: object) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.calibrate(**kwargs))
-
-
-# ---------------------------------------------------------------------------
-# SyncPneumaticGripperTool
-# ---------------------------------------------------------------------------
 
 
 class SyncPneumaticGripperTool(PneumaticGripperTool):
@@ -132,11 +117,6 @@ class SyncPneumaticGripperTool(PneumaticGripperTool):
 
     def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.close(**kwargs))
-
-
-# ---------------------------------------------------------------------------
-# SyncElectricGripperTool
-# ---------------------------------------------------------------------------
 
 
 class SyncElectricGripperTool(ElectricGripperTool):
@@ -200,10 +180,6 @@ class SyncElectricGripperTool(ElectricGripperTool):
     def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.close(**kwargs))
 
-
-# ---------------------------------------------------------------------------
-# Dispatch helper
-# ---------------------------------------------------------------------------
 
 _SYNC_MAP: dict[type, type] = {
     PneumaticGripperTool: SyncPneumaticGripperTool,

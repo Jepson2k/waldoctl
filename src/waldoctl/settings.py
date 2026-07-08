@@ -18,22 +18,12 @@ from nicegui import binding
 from waldoctl.notify import ChangeNotifierMixin
 
 
-# ---------------------------------------------------------------------------
-# EnvelopeMode — workspace-envelope visibility tri-state
-# ---------------------------------------------------------------------------
-
-
 class EnvelopeMode(Enum):
     """Workspace envelope visibility modes."""
 
     AUTO = "auto"
     ON = "on"
     OFF = "off"
-
-
-# ---------------------------------------------------------------------------
-# Settings sub-objects
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass

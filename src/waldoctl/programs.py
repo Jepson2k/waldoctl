@@ -21,11 +21,6 @@ from waldoctl.dry_run_state import DryRun
 from waldoctl.notify import ChangeNotifierMixin
 
 
-# ---------------------------------------------------------------------------
-# ProgramLog — per-program stdout / stderr capture
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True, slots=True)
 class LogEntry:
     """One line of captured output from a program's script execution."""
@@ -60,11 +55,6 @@ class ProgramLog(ChangeNotifierMixin):
         self.notify_changed()
 
 
-# ---------------------------------------------------------------------------
-# Execution — script lifecycle on one program
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class Execution(ChangeNotifierMixin):
     """Script execution lifecycle for one ``Program``.
@@ -94,11 +84,6 @@ class Execution(ChangeNotifierMixin):
     def resume(self) -> None:
         """Resume from pause. Requires the program to be paused."""
         raise NotImplementedError("host application wires execution.resume")
-
-
-# ---------------------------------------------------------------------------
-# Recording — motion-recording lifecycle on one program
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,11 +121,6 @@ class Recording(ChangeNotifierMixin):
     def discard(self) -> None:
         """Stop recording and drop the captured code."""
         raise NotImplementedError("host application wires recording.discard")
-
-
-# ---------------------------------------------------------------------------
-# EditFlow — proposed-edit lifecycle (Claude-Code style, edit-level)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -363,11 +343,6 @@ class EditFlow(ChangeNotifierMixin):
         raise KeyError(edit_id)
 
 
-# ---------------------------------------------------------------------------
-# Program — one open program
-# ---------------------------------------------------------------------------
-
-
 def _new_program_id() -> str:
     return uuid.uuid4().hex
 
@@ -423,11 +398,6 @@ class Program(ChangeNotifierMixin):
         raise NotImplementedError("host application wires program.reload")
 
 
-# ---------------------------------------------------------------------------
-# ProgramTabs — the open-programs container
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class ProgramTabs(ChangeNotifierMixin):
     """Container for the open programs. One is active at a time.
@@ -450,7 +420,6 @@ class ProgramTabs(ChangeNotifierMixin):
         """The currently active program, or ``None`` if no programs are open."""
         return self.get(self.active_id) if self.active_id else None
 
-    # --- Actions ----------------------------------------------------------
     def open(self, path: str) -> Program:
         """Load ``path`` from disk into a new ``Program`` (or focus the existing
         one if a program with this path is already open)."""
@@ -478,7 +447,6 @@ class ProgramTabs(ChangeNotifierMixin):
         """Make the program with the given id active."""
         raise NotImplementedError("host application wires programs.switch")
 
-    # --- Lookups ----------------------------------------------------------
     def __getitem__(self, id: str) -> Program:
         for p in self.items:
             if p.id == id:

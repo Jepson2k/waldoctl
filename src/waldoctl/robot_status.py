@@ -26,11 +26,6 @@ from waldoctl.status import ActionState
 from waldoctl.tools import ToolStatus
 
 
-# ---------------------------------------------------------------------------
-# AngleArray
-# ---------------------------------------------------------------------------
-
-
 class AngleArray:
     """Dual-representation angle array storing both degrees and radians.
 
@@ -68,11 +63,6 @@ class AngleArray:
 
     def __getitem__(self, idx: int) -> float:
         return float(self._deg[idx])
-
-
-# ---------------------------------------------------------------------------
-# ToolTimeSeries
-# ---------------------------------------------------------------------------
 
 
 class ToolTimeSeries:
@@ -113,11 +103,6 @@ class ToolTimeSeries:
         self._dirty = False
 
 
-# ---------------------------------------------------------------------------
-# Action history
-# ---------------------------------------------------------------------------
-
-
 class ActionStatus(Enum):
     """Lifecycle state of one action log entry."""
 
@@ -136,11 +121,6 @@ class ActionLogEntry:
     command_index: int = -1
     count: int = 1
     timestamp: float = 0.0
-
-
-# ---------------------------------------------------------------------------
-# Cartesian jog availability
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass
@@ -162,11 +142,6 @@ class CartesianJogAvailability(ChangeNotifierMixin):
     by_frame: dict[str, FrameJogAvailability] = field(default_factory=dict)
 
 
-# ---------------------------------------------------------------------------
-# Pose — Cartesian-frame live state
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class Pose(ChangeNotifierMixin):
     """Cartesian-frame live state: position, orientation, TCP speed, per-frame
@@ -183,11 +158,6 @@ class Pose(ChangeNotifierMixin):
     rz: float = 0.0
     tcp_speed: float = 0.0
     cart_jog: CartesianJogAvailability = field(default_factory=CartesianJogAvailability)
-
-
-# ---------------------------------------------------------------------------
-# Joints — joint-frame live state
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass(bindable_fields=["speeds", "can_jog_pos", "can_jog_neg"])
@@ -212,11 +182,6 @@ class Joints(ChangeNotifierMixin):
     can_jog_neg: list[bool] = field(default_factory=lambda: [True] * 6)
 
 
-# ---------------------------------------------------------------------------
-# IO — digital IO live state
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class IO(ChangeNotifierMixin):
     """Digital IO live state.
@@ -228,11 +193,6 @@ class IO(ChangeNotifierMixin):
     inputs: list[int] = field(default_factory=list)
     outputs: list[int] = field(default_factory=list)
     estop: int = 1
-
-
-# ---------------------------------------------------------------------------
-# Action — current command + session history
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass
@@ -255,11 +215,6 @@ class Action(ChangeNotifierMixin):
         return self.history[-1] if self.history else None
 
 
-# ---------------------------------------------------------------------------
-# Collision — blocked-motion visualization surface
-# ---------------------------------------------------------------------------
-
-
 @binding.bindable_dataclass
 class CollisionStatus(ChangeNotifierMixin):
     """Set when a motion is blocked/stopped because it would collide — with
@@ -276,11 +231,6 @@ class CollisionStatus(ChangeNotifierMixin):
 
     active: bool = False
     pairs: list[tuple[str, str]] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# RobotStatus — the locator's `status` attribute
-# ---------------------------------------------------------------------------
 
 
 @binding.bindable_dataclass

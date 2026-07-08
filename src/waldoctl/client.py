@@ -42,8 +42,6 @@ class RobotClient(ABC):
     Success is ``>= 0`` for queued motion, ``> 0`` for everything else.
     """
 
-    # -- Connection & lifecycle ---------------------------------------------
-
     @abstractmethod
     async def close(self) -> None:
         """Release resources and disconnect."""
@@ -65,8 +63,6 @@ class RobotClient(ABC):
         """Block until the robot backend is reachable or *timeout* expires."""
         ...
 
-    # -- Status streaming ---------------------------------------------------
-
     @abstractmethod
     def stream_status(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (yields copies, safe to store)."""
@@ -76,8 +72,6 @@ class RobotClient(ABC):
     def stream_status_shared(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (shared buffer, zero-copy)."""
         ...
-
-    # -- Motion commands (trajectory-planned) ---------------------------------
 
     @abstractmethod
     async def move_j(
@@ -144,8 +138,6 @@ class RobotClient(ABC):
         """
         ...
 
-    # -- Advanced motion (optional) -----------------------------------------
-
     async def move_c(
         self,
         via: list[float],
@@ -208,8 +200,6 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    # -- Servo commands (streaming position) --------------------------------
-
     @abstractmethod
     async def servo_j(
         self,
@@ -249,8 +239,6 @@ class RobotClient(ABC):
             rbt.servo_l(<tcp_pose_mm_deg>)
         """
         ...
-
-    # -- Jog commands (streaming velocity) ----------------------------------
 
     @abstractmethod
     async def jog_j(
@@ -299,8 +287,6 @@ class RobotClient(ABC):
         """
         ...
 
-    # -- Synchronization ----------------------------------------------------
-
     @abstractmethod
     async def wait_motion(
         self,
@@ -346,8 +332,6 @@ class RobotClient(ABC):
     ) -> bool:
         """Block until a checkpoint with *label* is reached."""
         raise NotImplementedError
-
-    # -- Safety & mode ------------------------------------------------------
 
     @abstractmethod
     async def resume(self) -> int:
@@ -453,8 +437,6 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    # -- Queries (required) -------------------------------------------------
-
     @abstractmethod
     async def angles(self) -> list[float] | None:
         """Current joint angles in degrees.
@@ -476,8 +458,6 @@ class RobotClient(ABC):
             pose = rbt.pose()
         """
         ...
-
-    # -- Queries (optional) -------------------------------------------------
 
     async def joint_speeds(self) -> list[float] | None:
         """Current joint velocities.
@@ -582,8 +562,6 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    # -- Configuration ------------------------------------------------------
-
     async def connect_hardware(self, port_str: str) -> int:
         """Connect to robot hardware via serial port.
 
@@ -638,8 +616,6 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    # -- I/O & Tools --------------------------------------------------------
-
     @property
     def tool(self) -> ToolSpec:
         """The active bound tool.
@@ -679,8 +655,6 @@ class RobotClient(ABC):
             rbt.tool_action("ELECTRIC", "calibrate")
         """
         raise NotImplementedError
-
-    # -- Queue control ------------------------------------------------------
 
     async def reset(self) -> int:
         """Reset controller state.
