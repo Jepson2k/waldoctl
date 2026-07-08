@@ -23,10 +23,24 @@ from waldoctl.dry_run_state import (
     Playback,
     ProgramTarget,
     ToolAction,
+    ShapeChange,
     ToolSelection,
 )
 from waldoctl.panels import Panel, PanelSlot
 from waldoctl.scene import SceneHandle
+from waldoctl.shapes import (
+    Box,
+    Capsule,
+    Cone,
+    Cylinder,
+    Ellipsoid,
+    Plane,
+    Shape,
+    ShapeBase,
+    ShapeWorld,
+    Sphere,
+    shape_from_wire,
+)
 from waldoctl.joints import (
     CartesianKinodynamicLimits,
     HomePosition,
@@ -60,6 +74,7 @@ from waldoctl.robot_status import (
     ActionStatus,
     AngleArray,
     CartesianJogAvailability,
+    CollisionStatus,
     FrameJogAvailability,
     Joints,
     Pose,
@@ -222,6 +237,18 @@ __all__ = [
     "Panel",
     "PanelSlot",
     "SceneHandle",
+    # Workspace shapes (collision world)
+    "Shape",
+    "ShapeBase",
+    "Box",
+    "Sphere",
+    "Cylinder",
+    "Capsule",
+    "Cone",
+    "Ellipsoid",
+    "Plane",
+    "ShapeWorld",
+    "shape_from_wire",
     # Version
     "__version__",
     # Mesh + motion descriptors (frozen dataclasses + type alias)
@@ -238,6 +265,7 @@ __all__ = [
     "Joints",
     "FrameJogAvailability",
     "CartesianJogAvailability",
+    "CollisionStatus",
     "IO",
     "Action",
     "ActionLogEntry",
@@ -264,6 +292,7 @@ __all__ = [
     "ProgramTarget",
     "PathSegment",
     "ToolAction",
+    "ShapeChange",
     "ToolSelection",
     # Settings surface
     "Settings",

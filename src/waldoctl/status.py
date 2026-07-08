@@ -56,6 +56,16 @@ class StatusBuffer(Protocol):
     """TCP linear velocity in mm/s."""
     simulator_active: bool
     """Whether the controller is in simulator mode."""
+    collision_active: bool
+    """Whether a motion was blocked/stopped by a predicted collision."""
+    collision_pairs: list[tuple[str, str]]
+    """Colliding pairs at the predicted colliding config.  Names are URDF link
+    names, ``shape:<name>`` (program keep-out), ``install:<name>``
+    (installation keep-out), or ``tool:<key>:<part>`` (attached tool geometry)
+    — never backend-internal geometry identifiers."""
+    scene_epoch: int
+    """Monotonic counter bumped on every collision-world change; displays
+    re-query ``RobotClient.shapes()`` when it moves."""
 
 
 @dataclass

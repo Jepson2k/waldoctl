@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import ActivityResult, PingResult, StatusBuffer, ToolResult
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
@@ -24,6 +25,21 @@ class RobotClient(ABC):
 
     - ``Category: <name>`` — groups the command in the palette UI.
     - ``Example:`` — the first indented line becomes the insertion snippet.
+
+    **Command return codes:** Command methods declared ``-> int`` follow one
+    convention, which backends MUST honor:
+
+    - Queued motion commands (Category: Motion) return the command's queue
+      index (``>= 0``) once the backend acknowledges it; ``< 0`` when the
+      command could not be confirmed or was rejected.
+    - Every other command returns ``1`` when the backend confirmed it applied
+      the command, ``0`` when unconfirmed (unreachable, or no reply in time —
+      the command may or may not have been applied), and ``< 0`` on rejection.
+      A backend may raise instead of returning a negative code on active
+      rejection; callers must treat both as failure.
+
+    A backend that cannot confirm application must never report success.
+    Success is ``>= 0`` for queued motion, ``> 0`` for everything else.
     """
 
     # -- Connection & lifecycle ---------------------------------------------
@@ -396,6 +412,45 @@ class RobotClient(ABC):
 
     async def is_freedrive(self) -> bool:
         """Query whether freedrive / teach mode is active."""
+        raise NotImplementedError
+
+    async def set_shapes(self, shapes: list[Shape]) -> int:
+        """Replace the program-layer keep-out / marker shapes (the collision world).
+
+        Collision-enabled shapes are added to the backend's collision checkers so
+        motion is blocked against them; an empty list clears all program-layer
+        shapes.  Installation-layer shapes (declared in the backend's robot
+        config) are unaffected — programs inherit them and cannot remove them.
+
+        The change also invalidates committed motion: the backend re-guards
+        the currently-streaming trajectory's remaining path and every queued
+        trajectory before it starts, halting with a collision error rather
+        than driving into a keep-out declared after the motion was planned.
+
+        Returns ``1`` only after the backend confirms the world was applied;
+        ``0`` if unconfirmed, ``< 0`` if the backend rejected the shapes (see
+        the class docstring's return-code convention).
+
+        Category: Configuration
+
+        Example:
+            rbt.set_shapes([Box(name="table", x=0.6, y=0.4, z=0.02,
+                                pose=(0.3, 0, -0.01, 0, 0, 0))])
+        """
+        raise NotImplementedError
+
+    async def shapes(self) -> ShapeWorld | None:
+        """The collision world the backend is currently enforcing, by layer.
+
+        Readback truth: displays should render this — not a locally stored
+        copy — re-querying whenever ``StatusBuffer.scene_epoch`` changes.
+        Returns None if the backend is unreachable.
+
+        Category: Query
+
+        Example:
+            world = rbt.shapes()
+        """
         raise NotImplementedError
 
     # -- Queries (required) -------------------------------------------------
