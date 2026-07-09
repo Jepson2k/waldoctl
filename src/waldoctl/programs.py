@@ -220,6 +220,10 @@ def parse_unified_diff(diff: str) -> list[DiffHunk]:
             continue  # pre-hunk headers
         if line.startswith("\\"):
             continue  # "\ No newline at end of file" — ignored
+        if line.startswith("diff --git"):
+            raise ValueError(
+                "multi-file diffs aren't supported; propose hunks for one file at a time"
+            )
         if old_left <= 0 and new_left <= 0:
             if not line:
                 continue
@@ -322,7 +326,9 @@ class EditFlow(ChangeNotifierMixin):
     """
 
     pending: list[PendingEdit] = field(default_factory=list)
-    _program: "Program | None" = field(default=None, repr=False)
+    # compare=False: this is a parent back-ref — including it in the generated
+    # __eq__ creates a Program<->EditFlow reference cycle that can recurse.
+    _program: "Program | None" = field(default=None, repr=False, compare=False)
 
     def propose(self, diff: str, description: str = "") -> EditId:
         """Validate ``diff`` against the current source and queue it.
