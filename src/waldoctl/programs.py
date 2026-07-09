@@ -142,6 +142,23 @@ class PendingEdit:
 
 _HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
+_LINE_TERMINATOR = re.compile(r"\r\n|\r|\n")
+
+
+def _split_lines(text: str) -> list[str]:
+    """Split on line terminators only (LF / CRLF / CR), dropping the trailing
+    empty piece like ``str.splitlines`` does.
+
+    ``str.splitlines`` itself is unsuitable here: it also breaks on ``\\f``,
+    ``\\x85``, U+2028, … — characters that can legitimately sit inside string
+    literals — and the apply path's rejoin would rewrite them into the
+    dominant terminator, corrupting lines the diff never touched.
+    """
+    lines = _LINE_TERMINATOR.split(text)
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
 
 @dataclass(frozen=True, slots=True)
 class DiffHunk:
@@ -179,26 +196,48 @@ def parse_unified_diff(diff: str) -> list[DiffHunk]:
     Pre-hunk headers (``--- a/...``, ``+++ b/...``) and ``\\ No newline at
     end of file`` markers are ignored. We only consume what's between
     ``@@`` headers, so MCP-emitted diffs without file headers work.
+
+    Hunk extent is bounded by the ``@@`` header line counts (absent counts
+    default to 1): once both are consumed, stray blank lines before the next
+    header are tolerated — a trailing blank line in the diff text must not
+    become phantom empty-context — and anything else is an error.
     """
     hunks: list[DiffHunk] = []
     current_start: int | None = None
     current_body: list[tuple[str, str]] = []
-    for line in diff.splitlines():
+    old_left = new_left = 0
+    for line in _split_lines(diff):
         m = _HUNK_HEADER.match(line)
         if m:
             if current_start is not None:
                 hunks.append(DiffHunk(current_start, tuple(current_body)))
             current_start = int(m.group(1))
             current_body = []
+            old_left = int(m.group(2) or 1)
+            new_left = int(m.group(4) or 1)
             continue
         if current_start is None:
             continue  # pre-hunk headers
+        if line.startswith("\\"):
+            continue  # "\ No newline at end of file" — ignored
+        if old_left <= 0 and new_left <= 0:
+            if not line:
+                continue
+            raise ValueError(f"diff line beyond hunk header counts: {line!r}")
         if not line:
             current_body.append((" ", ""))
-        elif line[0] in " -+":
-            current_body.append((line[0], line[1:]))
-        elif line[0] == "\\":
-            continue  # "\ No newline at end of file" — ignored
+            old_left -= 1
+            new_left -= 1
+        elif line[0] == " ":
+            current_body.append((" ", line[1:]))
+            old_left -= 1
+            new_left -= 1
+        elif line[0] == "-":
+            current_body.append(("-", line[1:]))
+            old_left -= 1
+        elif line[0] == "+":
+            current_body.append(("+", line[1:]))
+            new_left -= 1
         else:
             raise ValueError(f"unrecognized diff line: {line!r}")
     if current_start is not None:
@@ -223,7 +262,7 @@ def _apply_unified_diff(source: str, diff: str) -> str:
     if not hunks:
         return source
 
-    src_lines = source.splitlines()  # bare content, terminators stripped
+    src_lines = _split_lines(source)  # bare content, terminators stripped
     terminator = "\r\n" if "\r\n" in source else "\n"
     out: list[str] = []
     cursor = 0  # 0-indexed source position

@@ -184,6 +184,39 @@ def test_edit_flow_preserves_crlf_line_endings():
     assert p.source == "a\r\nB\r\n"
 
 
+def test_edit_flow_preserves_exotic_separator_chars_in_untouched_lines():
+    # str.splitlines also breaks on \f/\x85/U+2028 etc.; a diff touching an
+    # unrelated line must leave a literal containing them byte-identical, not
+    # rewrite the separator into \n.
+    for sep in ("\f", "\x85", "\u2028"):
+        p = Program(source=f'x = 1\ns = "a{sep}b"\n')
+        edit_id = p.edits.propose("@@ -1,1 +1,1 @@\n-x = 1\n+x = 2\n")
+        p.edits.approve(edit_id)
+        assert p.source == f'x = 2\ns = "a{sep}b"\n', repr(sep)
+
+
+def test_edit_flow_tolerates_trailing_blank_line_after_hunk():
+    # Hunk extent comes from the @@ header counts; a blank line trailing the
+    # diff text must not become phantom empty-context that rejects a clean diff.
+    p = Program(source="a\nb\nc\n")
+    edit_id = p.edits.propose("@@ -2,1 +2,1 @@\n-b\n+B\n\n")
+    p.edits.approve(edit_id)
+    assert p.source == "a\nB\nc\n"
+
+
+def test_edit_flow_blank_context_within_counts_matches_empty_source_line():
+    p = Program(source="a\n\nc\n")
+    edit_id = p.edits.propose("@@ -1,3 +1,3 @@\n a\n\n-c\n+C\n")
+    p.edits.approve(edit_id)
+    assert p.source == "a\n\nC\n"
+
+
+def test_edit_flow_rejects_nonblank_lines_beyond_hunk_counts():
+    p = Program(source="a\nb\nc\n")
+    with pytest.raises(ValueError):
+        p.edits.propose("@@ -2,1 +2,1 @@\n-b\n+B\ngarbage\n")
+
+
 def test_edit_flow_unbound_raises_runtime_error():
     flow = EditFlow()  # not attached to a Program
     with pytest.raises(RuntimeError, match="not bound"):
