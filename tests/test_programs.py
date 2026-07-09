@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import time
 
 import pytest
@@ -215,6 +216,32 @@ def test_edit_flow_rejects_nonblank_lines_beyond_hunk_counts():
     p = Program(source="a\nb\nc\n")
     with pytest.raises(ValueError):
         p.edits.propose("@@ -2,1 +2,1 @@\n-b\n+B\ngarbage\n")
+
+
+def test_edit_flow_rejects_multi_file_diffs_but_takes_git_headers():
+    # A single git-style file header before the first hunk is tolerated…
+    p = Program(source="a\nb\n")
+    edit_id = p.edits.propose(
+        "diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1,1 +1,1 @@\n-a\n+A\n"
+    )
+    p.edits.approve(edit_id)
+    assert p.source == "A\nb\n"
+    # …but a second file section is a clear, specific error, not a confusing
+    # context/counts failure.
+    with pytest.raises(ValueError, match="one file at a time"):
+        p.edits.propose(
+            "diff --git a/f b/f\n@@ -1,1 +1,1 @@\n-A\n+a\n"
+            "diff --git a/g b/g\n@@ -2,1 +2,1 @@\n-b\n+B\n"
+        )
+
+
+def test_program_equality_with_its_copy_terminates():
+    # EditFlow._program is a parent back-ref, so Program<->EditFlow form a
+    # reference cycle; comparing a program to an id-preserving copy must not
+    # recurse through it.
+    p = Program(source="a\nb\n")
+    q = copy.deepcopy(p)
+    assert p == q
 
 
 def test_edit_flow_unbound_raises_runtime_error():
