@@ -334,24 +334,39 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def resume(self) -> int:
-        """Re-enable the robot after an e-stop or disable.
+    async def stop(self) -> int:
+        """Stop all motion — cancel the active move and clear the queue.
+
+        The controller stays enabled and holding position; the next motion
+        command is accepted immediately.
 
         Category: Control
 
         Example:
-            rbt.resume()
+            rbt.stop()
         """
         ...
 
     @abstractmethod
-    async def halt(self) -> int:
-        """Immediate stop — halt all motion and disable.
+    async def estop(self) -> int:
+        """Protective stop: stop all motion and latch the controller
+        disabled until ``reset()``.
 
         Category: Control
 
         Example:
-            rbt.halt()
+            rbt.estop()
+        """
+        ...
+
+    @abstractmethod
+    async def reset(self) -> int:
+        """Clear a latched protective stop, re-enabling motion.
+
+        Category: Control
+
+        Example:
+            rbt.reset()
         """
         ...
 
@@ -656,13 +671,13 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def reset(self) -> int:
-        """Reset controller state.
+    async def reset_state(self) -> int:
+        """Reset controller state (world shapes, tool selection, errors).
 
         Category: Control
 
         Example:
-            rbt.reset()
+            rbt.reset_state()
         """
         raise NotImplementedError
 

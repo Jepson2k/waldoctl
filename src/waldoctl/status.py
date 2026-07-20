@@ -66,6 +66,10 @@ class StatusBuffer(Protocol):
     scene_epoch: int
     """Monotonic counter bumped on every collision-world change; displays
     re-query ``RobotClient.shapes()`` when it moves."""
+    homed: bool
+    """All joints homed. Until homing, reported joint positions are
+    unreferenced and backends refuse planned motion; frontends seed dry-run
+    previews with this so previews mirror that gate."""
 
 
 @dataclass
