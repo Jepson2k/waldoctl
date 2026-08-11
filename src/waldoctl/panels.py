@@ -64,6 +64,16 @@ class Panel(ABC):
     tab_tooltip: ClassVar[str | None] = None
     order: ClassVar[int] = 100
 
+    # Preferred tab-container size in CSS pixels. A panel that declares
+    # min_width/min_height is registered with the host's panel-resize system:
+    # it opens at default_width/default_height (falling back to the minima),
+    # the user can drag-resize it within the minima, and the chosen size
+    # persists. Panels that leave these None size to their content instead.
+    min_width: ClassVar[int | None] = None
+    min_height: ClassVar[int | None] = None
+    default_width: ClassVar[int | None] = None
+    default_height: ClassVar[int | None] = None
+
     def applies_to(self, commander: Commander) -> bool:
         """Return False to suppress the tab for this robot/session. Evaluated
         once at discovery — not re-checked per session."""
