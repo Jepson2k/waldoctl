@@ -93,6 +93,13 @@ class MeshSpec:
     """(roll, pitch, yaw) orientation in radians."""
     role: MeshRole = MeshRole.BODY
     """Which mesh group this belongs to."""
+    never_collides_with: tuple[str, ...] = ()
+    """Robot links this mesh cannot reach, given how the tool mounts and the
+    wrist joint limits. Backends drop those collision pairs when the tool is
+    attached: it is the runtime counterpart of an SRDF ``disable_collisions``
+    entry, which cannot name geometry added after the model loads. A tool
+    body that mounts *inside* the checker's clearance buffer without ever
+    touching would otherwise report a collision at every pose."""
 
 
 # ---------------------------------------------------------------------------
