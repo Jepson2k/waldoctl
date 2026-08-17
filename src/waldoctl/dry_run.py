@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from waldoctl.results import DryRunResult
@@ -50,4 +51,8 @@ class DryRunClient(Protocol):
     @property
     def tool(self) -> Any: ...
 
-    def flush(self) -> list[DryRunResult]: ...
+    #: `Sequence`, not `list`: `list` is invariant, so a backend returning
+    #: its own concrete result type — which is what every implementation
+    #: does — could not satisfy `list[DryRunResult]` no matter how well
+    #: the type matched the protocol.
+    def flush(self) -> Sequence[DryRunResult]: ...
