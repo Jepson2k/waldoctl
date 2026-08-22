@@ -70,6 +70,61 @@ class StatusBuffer(Protocol):
     """All joints homed. Until homing, reported joint positions are
     unreferenced and backends refuse planned motion; frontends seed dry-run
     previews with this so previews mirror that gate."""
+    tau: np.ndarray
+    """(N,) float64 — measured joint torques [Nm]."""
+    tau_ext: np.ndarray
+    """(N,) float64 — external joint torque estimate [Nm]: measured torque
+    minus the backend's dynamics model. A hand pushing the arm, a payload
+    the model does not know."""
+    mode: IntEnum
+    """Controller mode. Backend-specific enum; ``.name`` is the display
+    string (BOOTING, IDLE, JOG, ...)."""
+    enabled: bool
+    """Whether the controller accepts motion."""
+    gravity_comp: bool
+    """Whether the gravity-compensation feedforward is applied."""
+    warnings: list[tuple]
+    """Self-clearing warning-class conditions as structured-error 6-tuples
+    ``(command_index, code, title, cause, effect, remedy)`` — stale data,
+    degraded loop, failed homing. Hard latches are NOT here; they surface
+    through the error query/standing error."""
+    link_health: dict
+    """Motor-bus link health: ``state`` (backend enum/str), ``restarts``,
+    ``tx_errors``, ``rx_frames``. Empty when the backend has no bus."""
+    homing: dict
+    """Homing progress: ``active``, ``sequence_step``, and per-actuator
+    ``joints`` — (state, phase) pairs. Empty when idle and unsupported."""
+    min_clearance_m: float | None
+    """Minimum signed clearance over the active collision pairs [m]
+    (negative = penetration); None when not computed."""
+
+
+@dataclass
+class LoopStatsResult:
+    """Control-loop runtime metrics — the ``loop_stats()`` query result.
+
+    Periods are seconds; ``can_frame_age_*`` are backend ticks (0 on
+    backends without a fieldbus); ``rt_fifo``/``rt_pinned`` report whether
+    the control thread actually got its real-time scheduling."""
+
+    target_hz: float
+    loop_count: int
+    overrun_count: int
+    mean_period_s: float
+    std_period_s: float
+    min_period_s: float
+    max_period_s: float
+    p95_period_s: float
+    p99_period_s: float
+    mean_hz: float
+    p50_period_s: float
+    p90_period_s: float
+    can_frame_age_min_ticks: int
+    can_frame_age_max_ticks: int
+    rt_fifo: bool
+    """Whether the control thread runs under a real-time scheduling policy."""
+    rt_pinned: bool
+    """Whether the control thread is pinned to its configured CPU."""
 
 
 @dataclass

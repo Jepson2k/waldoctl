@@ -7,7 +7,13 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from waldoctl.shapes import Shape, ShapeWorld
-from waldoctl.status import ActivityResult, PingResult, StatusBuffer, ToolResult
+from waldoctl.status import (
+    ActivityResult,
+    LoopStatsResult,
+    PingResult,
+    StatusBuffer,
+    ToolResult,
+)
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
 
@@ -369,6 +375,42 @@ class RobotClient(ABC):
             rbt.reset()
         """
         ...
+
+    async def safety_stop(self) -> int:
+        """Drop every joint limp and hold there — remove drive authority
+        entirely, unlike ``estop()``'s powered protective hold.
+
+        The safest state the arm has: a trapped person or a jammed joint
+        can be freed by hand. Persists until a mode change (e.g.
+        ``reset()``) takes the arm out of it. Backends without a limp
+        state raise NotImplementedError.
+
+        Category: Control
+
+        Example:
+            rbt.safety_stop()
+        """
+        raise NotImplementedError
+
+    async def set_gravity_comp(self, on: bool) -> int:
+        """Apply (or stop applying) the gravity-compensation feedforward.
+
+        Category: Control
+
+        Example:
+            rbt.set_gravity_comp(True)
+        """
+        raise NotImplementedError
+
+    async def loop_stats(self) -> LoopStatsResult | None:
+        """Control-loop runtime metrics; ``None`` when unreachable.
+
+        Category: Query
+
+        Example:
+            stats = rbt.loop_stats()
+        """
+        raise NotImplementedError
 
     async def simulator(self, enabled: bool) -> int:
         """Enable or disable simulator mode.

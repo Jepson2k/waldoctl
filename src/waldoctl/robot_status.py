@@ -160,7 +160,9 @@ class Pose(ChangeNotifierMixin):
     cart_jog: CartesianJogAvailability = field(default_factory=CartesianJogAvailability)
 
 
-@binding.bindable_dataclass(bindable_fields=["speeds", "can_jog_pos", "can_jog_neg"])
+@binding.bindable_dataclass(
+    bindable_fields=["speeds", "torques", "torques_ext", "can_jog_pos", "can_jog_neg"]
+)
 class Joints(ChangeNotifierMixin):
     """Joint-frame live state: angles, speeds, per-joint jog availability.
 
@@ -172,12 +174,17 @@ class Joints(ChangeNotifierMixin):
     re-reads the value each refresh tick — and the numpy buffer is never run
     through ``BindableProperty``'s ``!=`` comparison.
 
-    ``speeds`` and ``can_jog_*`` are plain lists replaced wholesale on each
-    status tick, so their bindings fire correctly on reassignment.
+    ``speeds``, ``torques``, ``torques_ext`` and ``can_jog_*`` are plain
+    lists replaced wholesale on each status tick, so their bindings fire
+    correctly on reassignment. ``torques`` are measured joint torques
+    [Nm]; ``torques_ext`` is the external-torque estimate [Nm] (measured
+    minus the backend's dynamics model — a contact or unmodeled payload).
     """
 
     angles: AngleArray = field(default_factory=AngleArray)
     speeds: list[float] = field(default_factory=lambda: [0.0] * 6)
+    torques: list[float] = field(default_factory=lambda: [0.0] * 6)
+    torques_ext: list[float] = field(default_factory=lambda: [0.0] * 6)
     can_jog_pos: list[bool] = field(default_factory=lambda: [True] * 6)
     can_jog_neg: list[bool] = field(default_factory=lambda: [True] * 6)
 
@@ -234,6 +241,54 @@ class CollisionStatus(ChangeNotifierMixin):
 
 
 @binding.bindable_dataclass
+class Controller(ChangeNotifierMixin):
+    """Controller-level state: mode, enablement, gravity compensation.
+
+    ``mode`` is the backend mode enum's name (``"IDLE"``, ``"JOG"``, …) —
+    vendor-neutral for display, empty until the first status arrives.
+    """
+
+    mode: str = ""
+    enabled: bool = False
+    gravity_comp: bool = False
+
+
+@binding.bindable_dataclass
+class Warnings(ChangeNotifierMixin):
+    """Self-clearing warning-class conditions (stale data, degraded loop,
+    failed homing). ``entries`` are structured-error 6-tuples
+    ``(command_index, code, title, cause, effect, remedy)``, replaced
+    wholesale per status tick so bindings fire; empty = all clear. Hard
+    latches surface through the standing error, not here.
+    """
+
+    entries: list[tuple] = field(default_factory=list)
+
+
+@binding.bindable_dataclass
+class LinkHealth(ChangeNotifierMixin):
+    """Motor-bus link health. ``state`` is the backend link-state enum's
+    name (``"UP"``, ``"ERROR_PASSIVE"``, ``"BUS_OFF"``, …), empty on
+    backends without a fieldbus."""
+
+    state: str = ""
+    restarts: int = 0
+    tx_errors: int = 0
+    rx_frames: int = 0
+
+
+@binding.bindable_dataclass
+class Homing(ChangeNotifierMixin):
+    """Homing progress. ``joints`` is one ``(state, phase)`` name pair per
+    actuator (arm joints first), replaced wholesale per change; empty when
+    the backend reports no per-joint progress."""
+
+    active: bool = False
+    sequence_step: int = 0
+    joints: list[tuple[str, str]] = field(default_factory=list)
+
+
+@binding.bindable_dataclass
 class RobotStatus(ChangeNotifierMixin):
     """Live robot status — the public observation surface.
 
@@ -241,9 +296,10 @@ class RobotStatus(ChangeNotifierMixin):
     panel / MCP tool / extension via ``commander.status.<sub>.<leaf>``.
 
     **Mutate-in-place invariant**: the sub-objects (``pose``, ``joints``,
-    ``io``, ``tool``, ``action``, ``collision``) are constructed once and
-    mutated in place. Reassigning any of them orphans every binding registered
-    against the previous instance.
+    ``io``, ``tool``, ``action``, ``collision``, ``controller``,
+    ``warnings``, ``link_health``, ``homing``) are constructed once and
+    mutated in place. Reassigning any of them orphans every binding
+    registered against the previous instance.
     """
 
     connected: bool = False
@@ -255,4 +311,9 @@ class RobotStatus(ChangeNotifierMixin):
     tool: ToolStatus = field(default_factory=ToolStatus)
     action: Action = field(default_factory=Action)
     collision: CollisionStatus = field(default_factory=CollisionStatus)
+    controller: Controller = field(default_factory=Controller)
+    warnings: Warnings = field(default_factory=Warnings)
+    link_health: LinkHealth = field(default_factory=LinkHealth)
+    homing: Homing = field(default_factory=Homing)
+    min_clearance_m: float | None = None
     last_update: float = 0.0
