@@ -76,9 +76,6 @@ class StatusBuffer(Protocol):
     """(N,) float64 — external joint torque estimate [Nm]: measured torque
     minus the backend's dynamics model. A hand pushing the arm, a payload
     the model does not know."""
-    mode: IntEnum
-    """Controller mode. Backend-specific enum; ``.name`` is the display
-    string (BOOTING, IDLE, JOG, ...)."""
     enabled: bool
     """Whether the controller accepts motion."""
     gravity_comp: bool
@@ -97,6 +94,14 @@ class StatusBuffer(Protocol):
     min_clearance_m: float | None
     """Minimum signed clearance over the active collision pairs [m]
     (negative = penetration); None when not computed."""
+
+    @property
+    def mode(self) -> IntEnum:
+        """Controller mode. Backend-specific enum — a read-only property
+        so a backend's own enum subclass satisfies the Protocol (a plain
+        attribute would be invariant); ``.name`` is the display string
+        (BOOTING, IDLE, JOG, ...)."""
+        ...
 
 
 @dataclass
