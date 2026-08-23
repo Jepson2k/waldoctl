@@ -376,22 +376,6 @@ class RobotClient(ABC):
         """
         ...
 
-    async def safety_stop(self) -> int:
-        """Drop every joint limp and hold there — remove drive authority
-        entirely, unlike ``estop()``'s powered protective hold.
-
-        The safest state the arm has: a trapped person or a jammed joint
-        can be freed by hand. Persists until a mode change (e.g.
-        ``reset()``) takes the arm out of it. Backends without a limp
-        state raise NotImplementedError.
-
-        Category: Control
-
-        Example:
-            rbt.safety_stop()
-        """
-        raise NotImplementedError
-
     async def set_gravity_comp(self, on: bool) -> int:
         """Apply (or stop applying) the gravity-compensation feedforward.
 
