@@ -320,5 +320,4 @@ class RobotStatus(ChangeNotifierMixin):
     warnings: Warnings = field(default_factory=Warnings)
     link_health: LinkHealth = field(default_factory=LinkHealth)
     homing: Homing = field(default_factory=Homing)
-    min_clearance_m: float | None = None
     last_update: float = 0.0

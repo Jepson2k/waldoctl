@@ -70,9 +70,9 @@ class StatusBuffer(Protocol):
     """All joints homed. Until homing, reported joint positions are
     unreferenced and backends refuse planned motion; frontends seed dry-run
     previews with this so previews mirror that gate."""
-    tau: np.ndarray
+    torques: np.ndarray
     """(N,) float64 — measured joint torques [Nm]."""
-    tau_ext: np.ndarray
+    torques_ext: np.ndarray
     """(N,) float64 — external joint torque estimate [Nm]: measured torque
     minus the backend's dynamics model. A hand pushing the arm, a payload
     the model does not know."""
@@ -93,9 +93,6 @@ class StatusBuffer(Protocol):
     homing: dict
     """Homing progress: ``active``, ``sequence_step``, and per-actuator
     ``joints`` — (state, phase) pairs. Empty when idle and unsupported."""
-    min_clearance_m: float | None
-    """Minimum signed clearance over the active collision pairs [m]
-    (negative = penetration); None when not computed."""
 
     @property
     def mode(self) -> IntEnum:
