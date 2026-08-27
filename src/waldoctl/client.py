@@ -376,16 +376,6 @@ class RobotClient(ABC):
         """
         ...
 
-    async def set_gravity_comp(self, on: bool) -> int:
-        """Apply (or stop applying) the gravity-compensation feedforward.
-
-        Category: Control
-
-        Example:
-            rbt.set_gravity_comp(True)
-        """
-        raise NotImplementedError
-
     async def loop_stats(self) -> LoopStatsResult | None:
         """Control-loop runtime metrics; ``None`` when unreachable.
 
@@ -432,11 +422,35 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     async def freedrive(self, enabled: bool) -> int:
-        """Enable or disable freedrive / teach mode."""
+        """Release the arm for hand guiding, or take it back under control.
+
+        How a backend delivers this is its own business — a gravity
+        feedforward with no position term, a brake release, an impedance
+        mode. Callers state the intent; the backend picks the mechanism,
+        and refuses with its own reason when the arm is in no state to be
+        pushed around (unreferenced joints, drives down, mid-move).
+
+        Category: Control
+
+        Example:
+            rbt.freedrive(True)
+        """
         raise NotImplementedError
 
     async def is_freedrive(self) -> bool:
-        """Query whether freedrive / teach mode is active."""
+        """Whether the arm is back-driveable right now.
+
+        The question is about the arm, not the request: a backend that
+        accepted ``freedrive(True)`` but cannot honour it yet answers
+        False. Never report an arm safe to grab on the strength of a
+        command having been sent.
+
+        Category: Query
+
+        Example:
+            if rbt.is_freedrive():
+                ...
+        """
         raise NotImplementedError
 
     async def set_shapes(self, shapes: list[Shape]) -> int:

@@ -242,15 +242,20 @@ class CollisionStatus(ChangeNotifierMixin):
 
 @binding.bindable_dataclass
 class Controller(ChangeNotifierMixin):
-    """Controller-level state: mode, enablement, gravity compensation.
+    """Controller-level state: mode, enablement, freedrive.
 
     ``mode`` is the backend mode enum's name (``"IDLE"``, ``"JOG"``, …) —
     vendor-neutral for display, empty until the first status arrives.
+
+    ``freedrive`` is whether the arm is back-driveable *right now*, not
+    whether a request was accepted: a backend that took the command but
+    cannot honour it yet (unreferenced joints, drives down, busy) reports
+    False, so nobody is told an arm is safe to grab when it is not.
     """
 
     mode: str = ""
     enabled: bool = False
-    gravity_comp: bool = False
+    freedrive: bool = False
 
 
 @binding.bindable_dataclass
