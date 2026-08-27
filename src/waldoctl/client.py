@@ -7,7 +7,13 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from waldoctl.shapes import Shape, ShapeWorld
-from waldoctl.status import ActivityResult, PingResult, StatusBuffer, ToolResult
+from waldoctl.status import (
+    ActivityResult,
+    LoopStatsResult,
+    PingResult,
+    StatusBuffer,
+    ToolResult,
+)
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
 
@@ -370,6 +376,16 @@ class RobotClient(ABC):
         """
         ...
 
+    async def loop_stats(self) -> LoopStatsResult | None:
+        """Control-loop runtime metrics; ``None`` when unreachable.
+
+        Category: Query
+
+        Example:
+            stats = rbt.loop_stats()
+        """
+        raise NotImplementedError
+
     async def simulator(self, enabled: bool) -> int:
         """Enable or disable simulator mode.
 
@@ -406,11 +422,35 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     async def freedrive(self, enabled: bool) -> int:
-        """Enable or disable freedrive / teach mode."""
+        """Release the arm for hand guiding, or take it back under control.
+
+        How a backend delivers this is its own business — a gravity
+        feedforward with no position term, a brake release, an impedance
+        mode. Callers state the intent; the backend picks the mechanism,
+        and refuses with its own reason when the arm is in no state to be
+        pushed around (unreferenced joints, drives down, mid-move).
+
+        Category: Control
+
+        Example:
+            rbt.freedrive(True)
+        """
         raise NotImplementedError
 
     async def is_freedrive(self) -> bool:
-        """Query whether freedrive / teach mode is active."""
+        """Whether the arm is back-driveable right now.
+
+        The question is about the arm, not the request: a backend that
+        accepted ``freedrive(True)`` but cannot honour it yet answers
+        False. Never report an arm safe to grab on the strength of a
+        command having been sent.
+
+        Category: Query
+
+        Example:
+            if rbt.is_freedrive():
+                ...
+        """
         raise NotImplementedError
 
     async def set_shapes(self, shapes: list[Shape]) -> int:

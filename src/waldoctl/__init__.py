@@ -75,11 +75,15 @@ from waldoctl.robot_status import (
     AngleArray,
     CartesianJogAvailability,
     CollisionStatus,
+    Controller,
     FrameJogAvailability,
+    Homing,
     Joints,
+    LinkHealth,
     Pose,
     RobotStatus,
     ToolTimeSeries,
+    Warnings,
 )
 from waldoctl.settings import (
     EnvelopeMode,
@@ -93,6 +97,7 @@ from waldoctl.settings import (
 from waldoctl.status import (
     ActionState,
     ActivityResult,
+    LoopStatsResult,
     PingResult,
     StatusBuffer,
     ToolResult,
@@ -197,6 +202,7 @@ __all__ = [
     "ToolResult",
     "ActionState",
     "ActivityResult",
+    "LoopStatsResult",
     # Tools (enums + ABCs)
     "ToolType",
     "GripperType",
@@ -269,6 +275,10 @@ __all__ = [
     "ActionStatus",
     "AngleArray",
     "ToolTimeSeries",
+    "Controller",
+    "Warnings",
+    "LinkHealth",
+    "Homing",
     "ChangeNotifierMixin",
     # Programs surface
     "ProgramTabs",

@@ -1,3 +1,7 @@
 waldoctl.egg-info/
 __pycache__/
 test-results.xml
+build/
+dist/
+*.egg-info/
+__pycache__/
