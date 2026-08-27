@@ -78,10 +78,6 @@ class StatusBuffer(Protocol):
     the model does not know."""
     enabled: bool
     """Whether the controller accepts motion."""
-    freedrive: bool
-    """Whether the arm is back-driveable right now — hand guiding is
-    actually in effect, not merely requested. Backends that reach it by
-    other means than a gravity feedforward report the same thing."""
     warnings: list[tuple]
     """Self-clearing warning-class conditions as structured-error 6-tuples
     ``(command_index, code, title, cause, effect, remedy)`` — stale data,
@@ -93,6 +89,13 @@ class StatusBuffer(Protocol):
     homing: dict
     """Homing progress: ``active``, ``sequence_step``, and per-actuator
     ``joints`` — (state, phase) pairs. Empty when idle and unsupported."""
+
+    @property
+    def freedrive(self) -> bool:
+        """Whether the arm is back-driveable right now — hand guiding is
+        actually in effect, not merely requested. A read-only property so
+        backends may derive it from their own state rather than store it."""
+        ...
 
     @property
     def mode(self) -> IntEnum:
