@@ -132,8 +132,16 @@ class RobotClient(ABC):
         ...
 
     @abstractmethod
-    async def home(self, wait: bool = False, **wait_kwargs: Any) -> int:
+    async def home(
+        self, wait: bool = False, calibrate: bool = False, **wait_kwargs: Any
+    ) -> int:
         """Move to the robot's home position.
+
+        An uncalibrated robot (first home after power-on) always runs the
+        backend's calibration sequence — searching for its end stops to
+        establish joint references — and ends at the home position. Once
+        calibrated, ``home()`` is a planned move to the home position;
+        ``calibrate=True`` re-runs the calibration sequence instead.
 
         Returns the command index (>= 0) on success, -1 on failure.
 
