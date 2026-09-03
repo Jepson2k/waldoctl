@@ -10,6 +10,7 @@ from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
     LoopStatsResult,
+    Inertia6,
     PayloadEstimate,
     PayloadResult,
     PingResult,
@@ -663,11 +664,21 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    async def tcp_offset(self) -> list[float]:
+        """Query current TCP offset in mm [x, y, z].
+
+        Category: Configuration
+
+        Example:
+            offset = rbt.tcp_offset()
+        """
+        raise NotImplementedError
+
     async def set_payload(
         self,
         mass: float,
         com: tuple[float, float, float] = (0.0, 0.0, 0.0),
-        inertia: tuple[float, float, float, float, float, float] | None = None,
+        inertia: Inertia6 | None = None,
     ) -> int:
         """Declare what the arm is carrying at the TCP.
 
@@ -682,10 +693,12 @@ class RobotClient(ABC):
         depends on.
 
         *mass* in kg, 0 clears the payload. *com* is the centre of mass in
-        end-effector-frame metres. *inertia* is the rotational inertia
-        about the COM in end-effector-frame axes,
-        ``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` — omitted means a point mass,
-        which is what most payloads are well enough described by.
+        end-effector-frame metres. *inertia* is an :data:`Inertia6`;
+        omitted means a point mass.
+
+        Invalid input — a negative mass, an inertia that is not positive
+        semidefinite — raises ``RuntimeError`` (a backend's own error type
+        derives from it) rather than returning -1.
 
         Category: Configuration
 
@@ -708,21 +721,27 @@ class RobotClient(ABC):
         enough described by. A payload whose inertia matters is declared
         with ``set_payload`` from its drawing.
 
-        Call it after closing on a part whose mass is not known. The
-        backend moves the arm — a well-behaved one moves only the wrist,
-        where the load's lever arm is, so the pick is not disturbed and
-        the whole thing takes seconds.
+        Call it after closing on a part whose mass is not known. **The
+        arm moves**: the backend swings the wrist — where the load's
+        lever arm is, so nothing below moves and the pick is not
+        disturbed — through a few poses, taking seconds.
 
-        With *declare* (the default) the result is sent back as the
-        payload, so the gravity model carries the part from the next
-        tick. *spread* is how far the measuring motion swings; *ridge*
-        holds back parameters the motion did not measure.
+        The backend clears the declared payload before measuring (the
+        load is found in the torque an *unloaded* model cannot explain)
+        and restores it on every exit that does not declare, failure
+        included. With *declare* (the default) the estimate replaces it,
+        so the gravity model carries the part from the next tick.
 
-        Raises ``RuntimeError`` when there is no room to measure, or when
-        *declare* is set and no mass was actually measured — a backend
-        must refuse rather than declare noise.
+        *spread* is how far each wrist joint swings either way, in
+        radians. *ridge* holds back parameters the motion did not
+        measure.
 
-        Category: Configuration
+        Raises ``RuntimeError`` (a backend's own error type derives from
+        it) when there is no room to measure, or when *declare* is set
+        and no mass was actually measured — a backend must refuse rather
+        than declare noise.
+
+        Category: Motion
 
         Example:
             found = rbt.estimate_payload()
@@ -739,17 +758,7 @@ class RobotClient(ABC):
         Category: Query
 
         Example:
-            carried = rbt.payload()
-        """
-        raise NotImplementedError
-
-    async def tcp_offset(self) -> list[float]:
-        """Query current TCP offset in mm [x, y, z].
-
-        Category: Configuration
-
-        Example:
-            offset = rbt.tcp_offset()
+            print(rbt.payload())
         """
         raise NotImplementedError
 

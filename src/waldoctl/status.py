@@ -148,6 +148,12 @@ class ActivityResult:
     """Error description (empty if no error)."""
 
 
+Inertia6 = tuple[float, float, float, float, float, float]
+"""Rotational inertia about a centre of mass, end-effector-frame axes,
+``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` [kg m^2]. All zeros is a point mass,
+which is how most payloads are declared."""
+
+
 @dataclass
 class PayloadResult:
     """What the runtime believes the arm is carrying at the TCP.
@@ -163,10 +169,8 @@ class PayloadResult:
     com: tuple[float, float, float]
     """Centre of mass in end-effector-frame coordinates [m]."""
 
-    inertia: tuple[float, float, float, float, float, float]
-    """Rotational inertia about the COM, end-effector-frame axes,
-    ``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` [kg m^2]. All zeros = a point
-    mass, which is how most payloads are declared."""
+    inertia: Inertia6
+    """See :data:`Inertia6`."""
 
 
 @dataclass
@@ -183,16 +187,18 @@ class PayloadEstimate:
     """
 
     mass: float
-    """Identified mass [kg]."""
+    """Estimated mass [kg]."""
 
     com: tuple[float, float, float]
-    """Identified centre of mass [m], in the payload body's frame."""
+    """Estimated centre of mass in end-effector-frame coordinates [m] —
+    the same frame ``set_payload`` takes, so the estimate is declared
+    unchanged."""
 
     determined: tuple[float, float, float, float]
     """Share of each parameter the poses fixed, 0 to 1."""
 
     rms_nm: float
-    """Torque the identified load leaves unexplained [Nm]."""
+    """Torque the estimated load leaves unexplained [Nm]."""
 
     rms_unloaded_nm: float
     """Torque an empty model left unexplained [Nm] — how much of the
@@ -200,9 +206,6 @@ class PayloadEstimate:
 
     poses: int
     """Poses measured."""
-
-    declared: bool
-    """Whether the result was sent to the runtime as its payload."""
 
 
 @dataclass
