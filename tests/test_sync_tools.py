@@ -1,10 +1,13 @@
-"""The sync facade must never hand a caller a coroutine.
+"""A sync tool never hands a caller a coroutine, and never hides what the
+backend's tool says about itself.
 
-``make_sync_tool`` exists so a synchronous script can drive a tool. Any public
-async verb the wrapper forgets to override falls through ``__getattr__`` to the
-async implementation, and calling it builds a coroutine nobody awaits: no
-datagram is sent and the only symptom is a RuntimeWarning. For ``stop()`` that
-means the jaws keep travelling.
+The wrapper used to inherit from the tool it wrapped. Every coroutine the
+async base defined then resolved on the wrapper first and came back
+un-awaited unless hand-listed — the call looked like it worked, the
+gripper never moved — and every property a backend overrode was answered
+by the base instead. Both are exercised here through a backend-shaped
+tool: one with a verb waldoctl has never heard of, and a property it
+computes itself.
 """
 
 from __future__ import annotations
@@ -12,30 +15,34 @@ from __future__ import annotations
 import asyncio
 import inspect
 
-from waldoctl import ElectricGripperTool, ToolStatus
 from waldoctl.sync_tools import make_sync_tool
+from waldoctl.tools import ElectricGripperTool, GripperTool, ToolSpec, ToolStatus
+
+_ZERO_TCP = dict(tcp_origin=(0.0, 0.0, 0.0), tcp_rpy=(0.0, 0.0, 0.0))
 
 
-class _Gripper(ElectricGripperTool):
-    """A concrete electric gripper whose verbs record the call and answer with
-    a distinct value, so the test can tell a forwarded call from a leaked
-    coroutine."""
+class _BackendGripper(ElectricGripperTool):
+    """What a backend ships: waldoctl's verbs, plus its own, plus a
+    property the base has a default for but the backend computes."""
 
     def __init__(self) -> None:
         super().__init__(
-            key="grip",
-            display_name="Grip",
+            key="rec",
+            display_name="Recorder",
             tool_type="gripper",
-            tcp_origin=(0.0, 0.0, 0.0),
-            tcp_rpy=(0.0, 0.0, 0.0),
             position_range=(0.0, 1.0),
             speed_range=(0.0, 1.0),
             current_range=(0, 1000),
+            **_ZERO_TCP,
         )
         self.calls: list[str] = []
 
+    @property
+    def adjust_step(self) -> int | None:
+        return 7
+
     async def set_position(self, position: float, **kwargs: float | int) -> int:
-        self.calls.append("set_position")
+        self.calls.append(f"set_position({position})")
         return 1
 
     async def calibrate(self, **kwargs: object) -> int:
@@ -43,65 +50,98 @@ class _Gripper(ElectricGripperTool):
         return 2
 
     async def open(self, **kwargs: float | int) -> int:
-        self.calls.append("open")
         return 3
 
     async def close(self, **kwargs: float | int) -> int:
-        self.calls.append("close")
         return 4
-
-    async def stop(self, **kwargs: object) -> int:
-        self.calls.append("stop")
-        return 5
-
-    async def release(self, **kwargs: object) -> int:
-        self.calls.append("release")
-        return 6
-
-    async def action_r(self, engaged: bool) -> None:
-        self.calls.append("action_r")
 
     async def status(self) -> ToolStatus:
         self.calls.append("status")
-        return ToolStatus(key="GRIP", engaged=True)
+        return ToolStatus(key="rec", engaged=True, positions=(0.25,))
+
+    async def action_r(self, engaged: bool) -> None:
+        self.calls.append(f"action_r({engaged})")
+
+    async def stop(self, **kwargs: object) -> int:
+        self.calls.append("stop")
+        return 9
+
+    async def purge(self) -> int:
+        """A verb no waldoctl base declares."""
+        self.calls.append("purge")
+        return 11
 
 
-def _public_coroutine_verbs(tool: object) -> list[str]:
-    return sorted(
-        name
-        for name, member in inspect.getmembers(type(tool))
-        if not name.startswith("_") and inspect.iscoroutinefunction(member)
-    )
+class _BareTool(ToolSpec):
+    """A metadata-only tool, like a flange: no verbs, but ToolSpec's own
+    coroutines are still there."""
+
+    def __init__(self) -> None:
+        super().__init__(key="bare", display_name="Bare", tool_type="none", **_ZERO_TCP)
 
 
-def test_every_async_verb_is_synchronous_on_the_wrapper() -> None:
-    tool = _Gripper()
+def test_every_coroutine_runs_and_every_override_shows_through() -> None:
+    tool = _BackendGripper()
     sync = make_sync_tool(tool, asyncio.run)
 
-    verbs = _public_coroutine_verbs(tool)
-    assert {"stop", "release", "status", "action_l", "action_r"} <= set(verbs)
-    leaked = [v for v in verbs if inspect.iscoroutinefunction(getattr(sync, v))]
-    assert leaked == [], f"the wrapper hands back coroutines for {leaked}"
-
+    # waldoctl's own verbs, the ones it declares but the backend inherits,
+    # and the one only the backend has: all plain calls with real results.
     assert sync.set_position(0.5) == 1
     assert sync.calibrate() == 2
-    assert sync.open() == 3
-    assert sync.close() == 4
-    assert sync.stop() == 5
-    assert sync.release() == 6
-    assert sync.action_l(True) is None
-    assert sync.action_r(True) is None
     status = sync.status()
-    assert isinstance(status, ToolStatus)
-    assert status.engaged
+    assert not inspect.isawaitable(status)
+    assert status.positions == (0.25,)
+    assert sync.action_r(False) is None
+    assert sync.stop() == 9
+    assert sync.purge() == 11
+    # GripperTool.action_l is inherited on the async side and awaits
+    # open(): it must run there, through the wrapper, not come back raw.
+    assert sync.action_l(True) is None
     assert tool.calls == [
-        "set_position",
+        "set_position(0.5)",
         "calibrate",
-        "open",
-        "close",
-        "stop",
-        "release",
-        "open",
-        "action_r",
         "status",
+        "action_r(False)",
+        "stop",
+        "purge",
     ]
+    # A verb the base declares but this backend does not implement refuses
+    # synchronously, the same way a bare tool's coroutines do.
+    try:
+        sync.release()
+    except NotImplementedError:
+        pass
+    else:
+        raise AssertionError("release() must refuse, not return a coroutine")
+
+    # The backend's computed property, not ToolSpec's stored default.
+    assert sync.adjust_step == 7
+    assert sync.key == "REC"
+    assert sync.display_name == "Recorder"
+
+    # Type identity a frontend branches on.
+    assert isinstance(sync, ElectricGripperTool)
+    assert isinstance(sync, GripperTool)
+    assert isinstance(sync, ToolSpec)
+    assert isinstance(sync, _BackendGripper)
+
+
+def test_a_metadata_only_tool_is_wrapped_too() -> None:
+    sync = make_sync_tool(_BareTool(), asyncio.run)
+    assert isinstance(sync, ToolSpec)
+    assert not isinstance(sync, GripperTool)
+    # ToolSpec's own coroutines refuse, and the refusal must ARRIVE — as
+    # the exception, synchronously — rather than sit inside a coroutine
+    # nobody awaits, which is what an unwrapped bare tool handed back.
+    for verb, call in (
+        ("status", lambda: sync.status()),
+        ("action_l", lambda: sync.action_l(True)),
+    ):
+        try:
+            call()
+        except NotImplementedError:
+            pass
+        else:
+            raise AssertionError(
+                f"{verb} on a bare tool must refuse, not return a coroutine"
+            )
