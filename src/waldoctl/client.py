@@ -10,6 +10,7 @@ from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
     LoopStatsResult,
+    PayloadResult,
     PingResult,
     StatusBuffer,
     ToolResult,
@@ -658,6 +659,50 @@ class RobotClient(ABC):
 
         Example:
             rbt.set_tcp_offset(0, 0, -190)
+        """
+        raise NotImplementedError
+
+    async def set_payload(
+        self,
+        mass: float,
+        com: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        inertia: tuple[float, float, float, float, float, float] | None = None,
+    ) -> int:
+        """Declare what the arm is carrying at the TCP.
+
+        An inertial declaration only: the gravity feedforward and torque
+        planning carry it, the collision geometry does not change (use
+        ``set_shapes`` for that).
+
+        This is what a backend's own model cannot know. A shipped model
+        describes the nominal arm; the mass in the gripper, the fixture
+        bolted to the flange and the spool on the end of it are the
+        operator's, and they move the first moments the gravity model
+        depends on.
+
+        *mass* in kg, 0 clears the payload. *com* is the centre of mass in
+        end-effector-frame metres. *inertia* is the rotational inertia
+        about the COM in end-effector-frame axes,
+        ``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` — omitted means a point mass,
+        which is what most payloads are well enough described by.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_payload(1.2, com=(0.0, 0.0, 0.05))
+        """
+        raise NotImplementedError
+
+    async def payload(self) -> PayloadResult | None:
+        """The payload the runtime is currently carrying.
+
+        Returns ``None`` if the backend is unreachable. A backend that
+        carries no payload reports zeros rather than ``None``.
+
+        Category: Query
+
+        Example:
+            carried = rbt.payload()
         """
         raise NotImplementedError
 

@@ -149,6 +149,27 @@ class ActivityResult:
 
 
 @dataclass
+class PayloadResult:
+    """What the runtime believes the arm is carrying at the TCP.
+
+    An inertial description, not geometry: it is what the gravity
+    feedforward and torque planning use. A backend carrying nothing
+    reports zeros.
+    """
+
+    mass: float
+    """Payload mass [kg]; 0 = no payload."""
+
+    com: tuple[float, float, float]
+    """Centre of mass in end-effector-frame coordinates [m]."""
+
+    inertia: tuple[float, float, float, float, float, float]
+    """Rotational inertia about the COM, end-effector-frame axes,
+    ``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` [kg m^2]. All zeros = a point
+    mass, which is how most payloads are declared."""
+
+
+@dataclass
 class PingResult:
     """Result of a connectivity check."""
 
