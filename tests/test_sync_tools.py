@@ -131,3 +131,32 @@ def test_a_metadata_only_tool_is_wrapped_too() -> None:
             raise AssertionError(
                 f"{verb} on a bare tool must refuse, not return a coroutine"
             )
+
+
+def test_every_waldoctl_coroutine_has_a_typed_sync_declaration() -> None:
+    """Behaviour is composition, so an undeclared method can only ever be
+    UNTYPED, never un-awaited. This keeps 'untyped' from accumulating: a
+    coroutine added to a waldoctl tool base must get a sync declaration
+    on the matching wrapper, walking the whole MRO — not just the class's
+    own __dict__, which is how status and action_r were missed before.
+    """
+    from waldoctl.sync_tools import (
+        SyncElectricGripperTool,
+        SyncGripperTool,
+        SyncPneumaticGripperTool,
+        SyncTool,
+    )
+    from waldoctl.tools import PneumaticGripperTool
+
+    for async_cls, sync_cls in (
+        (ToolSpec, SyncTool),
+        (GripperTool, SyncGripperTool),
+        (PneumaticGripperTool, SyncPneumaticGripperTool),
+        (ElectricGripperTool, SyncElectricGripperTool),
+    ):
+        for name, _ in inspect.getmembers(async_cls, inspect.iscoroutinefunction):
+            declared = inspect.getattr_static(sync_cls, name, None)
+            assert declared is not None and not inspect.iscoroutinefunction(declared), (
+                f"{async_cls.__name__}.{name} is a coroutine with no typed sync "
+                f"declaration on {sync_cls.__name__}: callers see it as Any"
+            )

@@ -16,6 +16,7 @@ from waldoctl.discovery import (
     load_robot_class,
     load_tool_spec_class,
 )
+from waldoctl.errors import RobotError
 from waldoctl.dry_run import DryRunClient
 from waldoctl.dry_run_state import (
     DryRun,
@@ -203,6 +204,7 @@ __all__ = [
     "StatusBuffer",
     "Inertia6",
     "PayloadEstimate",
+    "RobotError",
     "PayloadResult",
     "PingResult",
     "ToolResult",
