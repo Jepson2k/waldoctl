@@ -98,6 +98,7 @@ from waldoctl.status import (
     ActionState,
     ActivityResult,
     LoopStatsResult,
+    PayloadIdentificationResult,
     PayloadResult,
     PingResult,
     StatusBuffer,
@@ -199,6 +200,7 @@ __all__ = [
     "DryRunResultData",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
+    "PayloadIdentificationResult",
     "PayloadResult",
     "PingResult",
     "ToolResult",

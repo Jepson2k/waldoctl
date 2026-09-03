@@ -170,6 +170,41 @@ class PayloadResult:
 
 
 @dataclass
+class PayloadIdentificationResult:
+    """What an identification run measured.
+
+    ``determined`` is per parameter — mass, then the three first-moment
+    components — and says how much the poses actually fixed, from 0 (they
+    said nothing) to 1 (fixed outright). A wrist with no room to swing
+    comes back near zero and the mass should not be trusted; a backend
+    asked to declare such a result refuses rather than pushing noise into
+    the gravity model.
+    """
+
+    mass: float
+    """Identified mass [kg]."""
+
+    com: tuple[float, float, float]
+    """Identified centre of mass [m], in the payload body's frame."""
+
+    determined: tuple[float, float, float, float]
+    """Share of each parameter the poses fixed, 0 to 1."""
+
+    rms_nm: float
+    """Torque the identified load leaves unexplained [Nm]."""
+
+    rms_unloaded_nm: float
+    """Torque an empty model left unexplained [Nm] — how much of the
+    reading was the load at all."""
+
+    poses: int
+    """Poses measured."""
+
+    declared: bool
+    """Whether the result was sent to the runtime as its payload."""
+
+
+@dataclass
 class PingResult:
     """Result of a connectivity check."""
 

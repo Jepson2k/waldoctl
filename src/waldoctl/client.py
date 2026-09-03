@@ -10,6 +10,7 @@ from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
     LoopStatsResult,
+    PayloadIdentificationResult,
     PayloadResult,
     PingResult,
     StatusBuffer,
@@ -690,6 +691,36 @@ class RobotClient(ABC):
 
         Example:
             rbt.set_payload(1.2, com=(0.0, 0.0, 0.05))
+        """
+        raise NotImplementedError
+
+    async def identify_payload(
+        self,
+        spread: float = 0.5,
+        ridge: float = 0.01,
+        declare: bool = True,
+    ) -> PayloadIdentificationResult:
+        """Measure what the arm is carrying, and declare it.
+
+        Call it after closing on a part whose mass is not known. The
+        backend moves the arm — a well-behaved one moves only the wrist,
+        where the load's lever arm is, so the pick is not disturbed and
+        the whole thing takes seconds.
+
+        With *declare* (the default) the result is sent back as the
+        payload, so the gravity model carries the part from the next
+        tick. *spread* is how far the measuring motion swings; *ridge*
+        holds back parameters the motion did not measure.
+
+        Raises ``RuntimeError`` when there is no room to measure, or when
+        *declare* is set and no mass was actually measured — a backend
+        must refuse rather than declare noise.
+
+        Category: Configuration
+
+        Example:
+            found = rbt.identify_payload()
+            print(f"holding {found.mass:.3f} kg")
         """
         raise NotImplementedError
 
