@@ -15,6 +15,7 @@ from waldoctl.tools import (
     GripperType,
     PneumaticGripperTool,
     ToolSpec,
+    ToolStatus,
 )
 
 
@@ -63,6 +64,15 @@ class SyncGripperTool(GripperTool):
 
     def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.close(**kwargs))
+
+    def action_l(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_l(engaged))
+
+    def action_r(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_r(engaged))
+
+    def status(self) -> ToolStatus:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.status())
 
     def calibrate(self, **kwargs: object) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.calibrate(**kwargs))
@@ -117,6 +127,15 @@ class SyncPneumaticGripperTool(PneumaticGripperTool):
 
     def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.close(**kwargs))
+
+    def action_l(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_l(engaged))
+
+    def action_r(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_r(engaged))
+
+    def status(self) -> ToolStatus:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.status())
 
 
 class SyncElectricGripperTool(ElectricGripperTool):
@@ -179,6 +198,21 @@ class SyncElectricGripperTool(ElectricGripperTool):
 
     def close(self, **kwargs: float | int) -> int:  # type: ignore[override, ty:invalid-method-override]
         return self._run(self._async.close(**kwargs))
+
+    def stop(self, **kwargs: object) -> int:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.stop(**kwargs))
+
+    def release(self, **kwargs: object) -> int:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.release(**kwargs))
+
+    def action_l(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_l(engaged))
+
+    def action_r(self, engaged: bool) -> None:  # type: ignore[override, ty:invalid-method-override]
+        self._run(self._async.action_r(engaged))
+
+    def status(self) -> ToolStatus:  # type: ignore[override, ty:invalid-method-override]
+        return self._run(self._async.status())
 
 
 _SYNC_MAP: dict[type, type] = {
