@@ -170,8 +170,9 @@ class PayloadResult:
 
 
 @dataclass
-class PayloadIdentificationResult:
-    """What an identification run measured.
+class PayloadEstimate:
+    """What an estimation run measured: mass and centre of mass, never the
+    inertia tensor (static poses cannot excite it).
 
     ``determined`` is per parameter — mass, then the three first-moment
     components — and says how much the poses actually fixed, from 0 (they

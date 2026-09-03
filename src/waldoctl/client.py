@@ -10,7 +10,7 @@ from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
     LoopStatsResult,
-    PayloadIdentificationResult,
+    PayloadEstimate,
     PayloadResult,
     PingResult,
     StatusBuffer,
@@ -694,13 +694,19 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def identify_payload(
+    async def estimate_payload(
         self,
         spread: float = 0.5,
         ridge: float = 0.01,
         declare: bool = True,
-    ) -> PayloadIdentificationResult:
-        """Measure what the arm is carrying, and declare it.
+    ) -> PayloadEstimate:
+        """Estimate what the arm is carrying, and declare it.
+
+        Mass and centre of mass, from the torque the arm holds. NOT the
+        inertia tensor: static poses cannot excite it, so the result is
+        carried as a point mass — which is what most payloads are well
+        enough described by. A payload whose inertia matters is declared
+        with ``set_payload`` from its drawing.
 
         Call it after closing on a part whose mass is not known. The
         backend moves the arm — a well-behaved one moves only the wrist,
@@ -719,7 +725,7 @@ class RobotClient(ABC):
         Category: Configuration
 
         Example:
-            found = rbt.identify_payload()
+            found = rbt.estimate_payload()
             print(f"holding {found.mass:.3f} kg")
         """
         raise NotImplementedError
