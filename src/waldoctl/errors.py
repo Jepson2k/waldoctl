@@ -30,6 +30,35 @@ class RobotError(RuntimeError):
         self.remedy = remedy
         super().__init__(f"[{code}] {title}")
 
+    def __reduce__(self) -> tuple:
+        # An exception with its own constructor reduces, by default, to
+        # ``(cls, self.args)`` — the one formatted message — so a copy or
+        # a pickle (a state snapshot, a script subprocess) rebuilt it with
+        # five fields missing. Rebuild from the six fields instead.
+        return (
+            type(self),
+            (
+                self.command_index,
+                self.code,
+                self.title,
+                self.cause,
+                self.effect,
+                self.remedy,
+            ),
+        )
+
+    def to_wire(self) -> list:
+        """The wire 6-tuple, the inverse of :meth:`from_wire` — what a
+        backend's server puts in an ERROR message."""
+        return [
+            self.command_index,
+            self.code,
+            self.title,
+            self.cause,
+            self.effect,
+            self.remedy,
+        ]
+
     @classmethod
     def from_wire(cls, err: Sequence) -> "RobotError":
         """Build from the wire 6-tuple ``[index, code, title, cause, effect, remedy]``."""
