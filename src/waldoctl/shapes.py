@@ -133,7 +133,13 @@ def shape_from_wire(
     name: str = "",
 ) -> Shape:
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
-    cls = _REGISTRY[kind]
+    try:
+        cls = _REGISTRY[kind]
+    except KeyError:
+        raise ValueError(
+            f"unknown shape kind {kind!r} — wire/persisted data does not "
+            f"match this waldoctl version (known: {', '.join(sorted(_REGISTRY))})"
+        ) from None
     pnames = [f.name for f in fields(cls) if f.name not in _COMMON]
     if len(params) != len(pnames):
         raise ValueError(
