@@ -1,6 +1,6 @@
 """Shape serialization round-trips through the generic introspective wire form."""
 
-from waldoctl import Box, Capsule, Plane, Sphere, shape_from_wire
+from waldoctl import Box, Capsule, Sphere, shape_from_wire
 
 
 def test_shape_wire_round_trip_preserves_every_field():
@@ -8,7 +8,6 @@ def test_shape_wire_round_trip_preserves_every_field():
         Box(name="table", x=0.6, y=0.4, z=0.02, pose=(0.3, 0.0, -0.01, 0, 0, 0)),
         Sphere(name="ball", radius=0.1, collision=False),
         Capsule(name="guard", radius=0.05, length=0.2, margin=0.01),
-        Plane(name="floor", nx=0.0, ny=0.0, nz=1.0, offset=0.0),
     ]
     for s in shapes:
         assert shape_from_wire(*s.to_wire()) == s
@@ -28,6 +27,8 @@ def test_shape_from_wire_rejects_wrong_param_count():
 
     with pytest.raises(ValueError, match="takes 1 param"):
         shape_from_wire("sphere", [0.1, 0.2], [0, 0, 0, 0, 0, 0], True, None, "s")
+    with pytest.raises(ValueError, match="unknown shape kind"):
+        shape_from_wire("plane", [0, 0, 1, 0.5], [0, 0, 0, 0, 0, 0], True, None, "p")
     with pytest.raises(ValueError):
         shape_from_wire("box", [0.1], [0, 0, 0, 0, 0, 0], True, None, "b")
 
@@ -36,7 +37,7 @@ def test_construction_rejects_degenerate_values():
     """Safety geometry must fail loudly at construction: coal accepts NaN or
     non-positive dimensions and then silently never reports a collision — a
     displayed barrier that doesn't exist. Cases from the requirement:
-    NaN / inf / negative / zero, bad pose, bad margin, zero plane normal."""
+    NaN / inf / negative / zero, bad pose, bad margin."""
     import math
 
     import pytest
@@ -55,14 +56,11 @@ def test_construction_rejects_degenerate_values():
         lambda: Box(name="b", x=0.1, y=0.1, z=0.1, pose=(0, 0, 0, 0, 0)),
         lambda: Box(name="b", x=0.1, y=0.1, z=0.1, margin=-0.01),
         lambda: Box(name="b", x=0.1, y=0.1, z=0.1, margin=nan),
-        lambda: Plane(name="p", nx=0.0, ny=0.0, nz=0.0, offset=0.1),
-        lambda: Plane(name="p", nx=nan, ny=0.0, nz=1.0, offset=0.1),
     ]
     for ctor in bad:
         with pytest.raises(ValueError):
             ctor()
 
-    # Legitimate non-dimension values stay legal: negative plane offset and
-    # normal components, zero margin, negative pose coordinates.
-    Plane(name="p", nx=0.0, ny=0.0, nz=-1.0, offset=-0.5)
+    # Legitimate non-dimension values stay legal: zero margin, negative
+    # pose coordinates.
     Box(name="b", x=0.1, y=0.1, z=0.1, pose=(-1, -1, -1, 0, 0, 0), margin=0.0)

@@ -35,7 +35,6 @@ from waldoctl.shapes import (
     Cone,
     Cylinder,
     Ellipsoid,
-    Plane,
     Shape,
     ShapeBase,
     ShapeWorld,
@@ -257,7 +256,6 @@ __all__ = [
     "Capsule",
     "Cone",
     "Ellipsoid",
-    "Plane",
     "ShapeWorld",
     "shape_from_wire",
     # Version
