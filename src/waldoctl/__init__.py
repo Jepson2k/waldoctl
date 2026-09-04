@@ -17,6 +17,7 @@ from waldoctl.discovery import (
     load_tool_spec_class,
 )
 from waldoctl.dry_run import DryRunClient
+from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
     DryRun,
     PathSegment,
@@ -29,6 +30,10 @@ from waldoctl.dry_run_state import (
 from waldoctl.panels import Panel, PanelSlot
 from waldoctl.scene import SceneHandle
 from waldoctl.shapes import (
+    Physical,
+    display_name,
+    geom_name,
+    pose_matrix,
     Box,
     Capsule,
     Cone,
@@ -64,7 +69,14 @@ from waldoctl.programs import (
     Recording,
     parse_unified_diff,
 )
-from waldoctl.results import DryRunResult, DryRunResultData, IKResult, IKResultData
+from waldoctl.results import (
+    DryRunResult,
+    DryRunResultData,
+    IKResult,
+    IKResultData,
+    ObjectAwareDryRunResult,
+    ObjectTrack,
+)
 from waldoctl.robot import Robot
 from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.robot_status import (
@@ -196,6 +208,8 @@ __all__ = [
     "DryRunResult",
     "IKResultData",
     "DryRunResultData",
+    "ObjectAwareDryRunResult",
+    "ObjectTrack",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
     "PingResult",
@@ -241,7 +255,11 @@ __all__ = [
     "PanelSlot",
     "SceneHandle",
     # Workspace shapes (collision world)
+    "Physical",
     "Shape",
+    "display_name",
+    "geom_name",
+    "pose_matrix",
     "ShapeBase",
     "Box",
     "Sphere",
@@ -251,6 +269,8 @@ __all__ = [
     "Ellipsoid",
     "Plane",
     "ShapeWorld",
+    "world_from_dict",
+    "world_to_dict",
     "shape_from_wire",
     # Version
     "__version__",
