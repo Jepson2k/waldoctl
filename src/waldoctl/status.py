@@ -86,6 +86,21 @@ class StatusBuffer(Protocol):
     link_health: dict
     """Motor-bus link health: ``state`` (backend enum/str), ``restarts``,
     ``tx_errors``, ``rx_frames``. Empty when the backend has no bus."""
+    drive_health: dict
+    """Per-drive analog readings, for watching a joint approach a limit
+    before it faults: ``temperatures_c`` and ``currents_ma`` (one entry per
+    actuator, arm joints first) and ``bus_voltage_v`` (the lowest supply a
+    drive reports, where sag under load shows first). A list is empty when
+    the backend has no such sensor at all; ``NaN`` inside one means that
+    drive has not answered yet. Faults themselves are NOT here — they
+    surface through ``warnings`` and the standing error."""
+    loop_health: dict
+    """Control-loop health as the loop runs: ``p99_period_s`` (the tail is
+    what breaks a control loop, not the mean) and ``overruns`` (ticks that
+    missed their deadline, cumulative). The rest of the loop metrics —
+    mean/min/max, scheduling policy, bus frame age — are boot constants or
+    detail, and stay in the ``loop_stats()`` query. Empty when the backend
+    does not measure its loop."""
     homing: dict
     """Homing progress: ``active``, ``sequence_step``, and per-actuator
     ``joints`` — (state, phase) pairs. Empty when idle and unsupported."""
