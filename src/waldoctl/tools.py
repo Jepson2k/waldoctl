@@ -674,6 +674,28 @@ class ElectricGripperTool(GripperTool):
         """(min, max) current range in mA."""
         return self._current_range
 
+    async def stop(self, **kwargs: object) -> int:
+        """Halt the jaws where they are, ahead of anything still queued.
+        Not all grippers support this.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.stop()
+        """
+        raise NotImplementedError
+
+    async def release(self, **kwargs: object) -> int:
+        """Drop the grip once the action in flight settles, freeing the jaws
+        for manual handling. Not all grippers support this.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.release()
+        """
+        raise NotImplementedError
+
 
 # ---------------------------------------------------------------------------
 # Tool collection

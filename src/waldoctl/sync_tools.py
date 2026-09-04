@@ -151,6 +151,12 @@ class SyncElectricGripperTool(SyncGripperTool):
     def current_range(self) -> tuple[int, int]:
         return self._async.current_range
 
+    def stop(self, **kwargs: object) -> int:
+        return self._run(self._async.stop(**kwargs))
+
+    def release(self, **kwargs: object) -> int:
+        return self._run(self._async.release(**kwargs))
+
 
 # Most specific typed wrapper for each async ABC, checked in this order.
 _TYPED: tuple[tuple[type, type[SyncTool]], ...] = (

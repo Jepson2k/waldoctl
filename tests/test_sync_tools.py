@@ -62,10 +62,14 @@ class _BackendGripper(ElectricGripperTool):
     async def action_r(self, engaged: bool) -> None:
         self.calls.append(f"action_r({engaged})")
 
-    async def stop(self) -> int:
-        """A verb no waldoctl base declares."""
+    async def stop(self, **kwargs: object) -> int:
         self.calls.append("stop")
         return 9
+
+    async def purge(self) -> int:
+        """A verb no waldoctl base declares."""
+        self.calls.append("purge")
+        return 11
 
 
 class _BareTool(ToolSpec):
@@ -89,6 +93,7 @@ def test_every_coroutine_runs_and_every_override_shows_through() -> None:
     assert status.positions == (0.25,)
     assert sync.action_r(False) is None
     assert sync.stop() == 9
+    assert sync.purge() == 11
     # GripperTool.action_l is inherited on the async side and awaits
     # open(): it must run there, through the wrapper, not come back raw.
     assert sync.action_l(True) is None
@@ -98,7 +103,16 @@ def test_every_coroutine_runs_and_every_override_shows_through() -> None:
         "status",
         "action_r(False)",
         "stop",
+        "purge",
     ]
+    # A verb the base declares but this backend does not implement refuses
+    # synchronously, the same way a bare tool's coroutines do.
+    try:
+        sync.release()
+    except NotImplementedError:
+        pass
+    else:
+        raise AssertionError("release() must refuse, not return a coroutine")
 
     # The backend's computed property, not ToolSpec's stored default.
     assert sync.adjust_step == 7
