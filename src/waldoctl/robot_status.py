@@ -284,17 +284,25 @@ class LinkHealth(ChangeNotifierMixin):
 
 @binding.bindable_dataclass
 class DriveHealth(ChangeNotifierMixin):
-    """Per-drive analog readings, one entry per actuator (arm joints
+    """Per-drive readings and faults, one entry per actuator (arm joints
     first). A list is empty on a backend whose drives report no such
     sensor; ``NaN`` inside one means that drive has not answered yet.
     ``bus_voltage_v`` is the lowest supply any drive reports — sag under
     load shows up at the loaded drive — and ``None`` when unreported.
-    Drive *faults* are not here; they arrive as warnings or a standing
-    error."""
+
+    A backend may report faults without analog registers, or the reverse,
+    so treat any non-empty member as "this backend has drive health"
+    rather than keying off ``temperatures_c`` alone."""
 
     temperatures_c: list[float] = field(default_factory=list)
     currents_ma: list[float] = field(default_factory=list)
     bus_voltage_v: float | None = None
+    faults: list[tuple[str, ...]] = field(default_factory=list)
+    """Active fault labels per drive, in the backend's own vocabulary — an
+    empty tuple is a healthy drive, an empty list a backend that reports no
+    per-drive faults at all. Names are for display and must not be
+    pattern-matched; a consumer that needs a specific condition reads the
+    standing error instead."""
 
 
 @binding.bindable_dataclass

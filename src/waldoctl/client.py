@@ -15,6 +15,7 @@ from waldoctl.status import (
     PayloadResult,
     PingResult,
     StatusBuffer,
+    StatusRate,
     ToolResult,
 )
 from waldoctl.tools import ToolSpec
@@ -394,6 +395,34 @@ class RobotClient(ABC):
 
         Example:
             stats = rbt.loop_stats()
+        """
+        raise NotImplementedError
+
+    async def set_status_rate(self, hz: float) -> int:
+        """Set the rate the controller broadcasts status at.
+
+        Raising it costs bandwidth and consumer CPU continuously, so it is
+        a knob for a debugging or tuning session rather than a permanent
+        setting. A rate the controller cannot divide its control loop into
+        is rejected rather than snapped to a neighbour — a silently
+        different rate than the one asked for makes any capture taken at it
+        wrong in a way nothing reports.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_status_rate(125)
+        """
+        raise NotImplementedError
+
+    async def status_rate(self) -> StatusRate | None:
+        """Current broadcast rate and the control rate it divides; ``None``
+        when unreachable.
+
+        Category: Query
+
+        Example:
+            rate = rbt.status_rate()
         """
         raise NotImplementedError
 

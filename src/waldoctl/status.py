@@ -87,13 +87,17 @@ class StatusBuffer(Protocol):
     """Motor-bus link health: ``state`` (backend enum/str), ``restarts``,
     ``tx_errors``, ``rx_frames``. Empty when the backend has no bus."""
     drive_health: dict
-    """Per-drive analog readings, for watching a joint approach a limit
-    before it faults: ``temperatures_c`` and ``currents_ma`` (one entry per
-    actuator, arm joints first) and ``bus_voltage_v`` (the lowest supply a
-    drive reports, where sag under load shows first). A list is empty when
-    the backend has no such sensor at all; ``NaN`` inside one means that
-    drive has not answered yet. Faults themselves are NOT here — they
-    surface through ``warnings`` and the standing error."""
+    """Per-drive readings and faults, for watching a joint approach a limit
+    and for seeing which drive tripped: ``temperatures_c`` and
+    ``currents_ma`` (one entry per actuator, arm joints first),
+    ``bus_voltage_v`` (the lowest supply a drive reports, where sag under
+    load shows first), and ``faults`` — a sequence of active fault labels
+    per drive in the backend's own vocabulary. A list is empty when the
+    backend reports nothing of that kind at all; ``NaN`` inside a reading
+    means that drive has not answered yet, and an empty label tuple means a
+    healthy drive. A backend may report faults without analog registers or
+    the reverse, so test the member you need rather than assuming they
+    arrive together."""
     loop_health: dict
     """Control-loop health as the loop runs: ``p99_period_s`` (the tail is
     what breaks a control loop, not the mean) and ``overruns`` (ticks that
@@ -147,6 +151,35 @@ class LoopStatsResult:
     """Whether the control thread runs under a real-time scheduling policy."""
     rt_pinned: bool
     """Whether the control thread is pinned to its configured CPU."""
+
+
+@dataclass(frozen=True)
+class StatusRate:
+    """The status broadcast rate, and the loop it is derived from.
+
+    A controller emits status every Nth control tick, so the rates it can
+    actually serve are ``control_hz / N`` for integer N. Reporting the loop
+    rate rather than a list of legal values lets a caller compute that set
+    itself, for any backend, and pick a rate that will be accepted instead
+    of discovering the constraint by rejection.
+    """
+
+    hz: float
+    """Rate the controller is broadcasting at now."""
+    control_hz: float
+    """Control-loop rate the broadcast divides."""
+
+    def achievable(self) -> tuple[float, ...]:
+        """Rates this controller can serve, highest first."""
+        if self.control_hz <= 0.0:
+            return ()
+        rates = []
+        divisor = 1
+        while divisor <= round(self.control_hz):
+            if abs(self.control_hz / divisor - round(self.control_hz / divisor)) < 1e-9:
+                rates.append(self.control_hz / divisor)
+            divisor += 1
+        return tuple(rates)
 
 
 @dataclass
