@@ -290,9 +290,10 @@ class DriveHealth(ChangeNotifierMixin):
     ``bus_voltage_v`` is the lowest supply any drive reports — sag under
     load shows up at the loaded drive — and ``None`` when unreported.
 
-    A backend may report faults without analog registers, or the reverse,
-    so treat any non-empty member as "this backend has drive health"
-    rather than keying off ``temperatures_c`` alone."""
+    ``reported`` is False on a backend that measures no drive at all, so a
+    display can tell "healthy" from "not reported" without deciding for
+    itself which member counts: a backend may report faults without analog
+    registers, or the reverse."""
 
     temperatures_c: list[float] = field(default_factory=list)
     currents_ma: list[float] = field(default_factory=list)
@@ -303,6 +304,15 @@ class DriveHealth(ChangeNotifierMixin):
     per-drive faults at all. Names are for display and must not be
     pattern-matched; a consumer that needs a specific condition reads the
     standing error instead."""
+
+    @property
+    def reported(self) -> bool:
+        return bool(
+            self.temperatures_c
+            or self.currents_ma
+            or self.faults
+            or self.bus_voltage_v is not None
+        )
 
 
 @binding.bindable_dataclass

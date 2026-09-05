@@ -1,4 +1,5 @@
-"""Tests for the ``RobotStatus`` surface and its nested bindable sub-objects."""
+"""Tests for the ``RobotStatus`` surface, its nested bindable sub-objects, and
+the ``StatusRate`` a status display picks a broadcast rate from."""
 
 from __future__ import annotations
 
@@ -12,8 +13,10 @@ from waldoctl import (
     AngleArray,
     CartesianJogAvailability,
     ChangeNotifierMixin,
+    DriveHealth,
     FrameJogAvailability,
     RobotStatus,
+    StatusRate,
     ToolTimeSeries,
 )
 
@@ -280,3 +283,91 @@ def test_change_notifier_mixin_works_standalone():
     p.add_change_listener(lambda: calls.append(1))
     p.notify_changed()
     assert calls == [1]
+
+
+# ---------------------------------------------------------------------------
+# DriveHealth
+# ---------------------------------------------------------------------------
+
+
+def test_drive_health_reported_covers_every_member():
+    """Backends report different subsets, and a supply reading of 0.0 V is a
+    report — the drives are down, not unmeasured."""
+    assert DriveHealth().reported is False
+    assert DriveHealth(temperatures_c=[41.0]).reported is True
+    assert DriveHealth(currents_ma=[900.0]).reported is True
+    assert DriveHealth(faults=[(), ("overtemperature",)]).reported is True
+    assert DriveHealth(bus_voltage_v=0.0).reported is True
+
+
+# ---------------------------------------------------------------------------
+# StatusRate
+# ---------------------------------------------------------------------------
+
+
+def test_achievable_offers_the_whole_number_divisors_of_the_loop():
+    """Status goes out every Nth tick, so a 250 Hz loop serves 250/N and a
+    100 Hz loop 100/N — a third of the loop rate is never on offer."""
+    assert StatusRate(hz=50.0, control_hz=250.0).achievable() == (
+        250.0,
+        125.0,
+        50.0,
+        25.0,
+        10.0,
+        5.0,
+        2.0,
+        1.0,
+    )
+    assert StatusRate(hz=50.0, control_hz=100.0).achievable() == (
+        100.0,
+        50.0,
+        25.0,
+        20.0,
+        10.0,
+        5.0,
+        4.0,
+        2.0,
+        1.0,
+    )
+    assert 100.0 / 3.0 not in StatusRate(hz=50.0, control_hz=100.0).achievable()
+
+
+def test_achievable_serves_a_loop_rate_that_is_not_a_whole_number():
+    """Backends divide the tick count, so a 62.5 Hz or 1000/3 Hz loop still
+    accepts the whole-number rates that divide it."""
+    assert StatusRate(hz=1.0, control_hz=62.5).achievable() == (62.0, 31.0, 2.0, 1.0)
+    assert StatusRate(hz=1.0, control_hz=1000.0 / 3.0).achievable() == (
+        333.0,
+        111.0,
+        37.0,
+        9.0,
+        3.0,
+        1.0,
+    )
+
+
+@pytest.mark.parametrize(
+    "control_hz",
+    [float("nan"), float("inf"), float("-inf"), 0.0, -100.0],
+)
+def test_achievable_is_empty_when_the_loop_rate_is_unusable(control_hz):
+    """A display renders a rate picker before any status has arrived, or from
+    a backend that reports no loop at all; it gets no options, not a crash."""
+    assert StatusRate(hz=0.0, control_hz=control_hz).achievable() == ()
+
+
+@pytest.mark.parametrize(
+    ("hz", "control_hz"),
+    [
+        (50.0, 250.0),
+        (50.0, 100.0),
+        (20.0, 100.0),
+        (1.0, 62.5),
+        (100.0, 100.0 + 1e-11),
+    ],
+)
+def test_the_reported_rate_is_one_of_the_achievable_rates(hz, control_hz):
+    """The rate a controller is already broadcasting at must survive the
+    round trip into a picker, float noise in the loop rate included —
+    otherwise the UI shows no current selection."""
+    assert hz in StatusRate(hz=hz, control_hz=control_hz).achievable()

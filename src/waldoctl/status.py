@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Protocol, runtime_checkable
@@ -94,10 +95,10 @@ class StatusBuffer(Protocol):
     load shows first), and ``faults`` — a sequence of active fault labels
     per drive in the backend's own vocabulary. A list is empty when the
     backend reports nothing of that kind at all; ``NaN`` inside a reading
-    means that drive has not answered yet, and an empty label tuple means a
-    healthy drive. A backend may report faults without analog registers or
-    the reverse, so test the member you need rather than assuming they
-    arrive together."""
+    means that drive has not answered yet, and an empty label sequence (a
+    list on one backend, a tuple on another) means a healthy drive. A
+    backend may report faults without analog registers or the reverse, so
+    test the member you need rather than assuming they arrive together."""
     loop_health: dict
     """Control-loop health as the loop runs: ``p99_period_s`` (the tail is
     what breaks a control loop, not the mean) and ``overruns`` (ticks that
@@ -157,11 +158,13 @@ class LoopStatsResult:
 class StatusRate:
     """The status broadcast rate, and the loop it is derived from.
 
-    A controller emits status every Nth control tick, so the rates it can
-    actually serve are ``control_hz / N`` for integer N. Reporting the loop
-    rate rather than a list of legal values lets a caller compute that set
-    itself, for any backend, and pick a rate that will be accepted instead
-    of discovering the constraint by rejection.
+    A controller emits status every Nth control tick and counts ticks, not
+    fractions: the rates it can actually serve are the whole numbers that
+    divide the tick rate evenly — a 100 Hz loop serves 50, 25, 20, 10, 5, 4,
+    2 and 1, never 100/3. Reporting the loop rate rather than a list of legal
+    values lets a caller compute that set itself, for any backend, and pick a
+    rate that will be accepted instead of discovering the constraint by
+    rejection.
     """
 
     hz: float
@@ -170,16 +173,13 @@ class StatusRate:
     """Control-loop rate the broadcast divides."""
 
     def achievable(self) -> tuple[float, ...]:
-        """Rates this controller can serve, highest first."""
-        if self.control_hz <= 0.0:
+        """Rates this controller can serve, highest first. Empty when the
+        backend reported no usable loop rate, so a display that asks before
+        the first status arrives gets nothing rather than an exception."""
+        if not math.isfinite(self.control_hz) or self.control_hz <= 0.0:
             return ()
-        rates = []
-        divisor = 1
-        while divisor <= round(self.control_hz):
-            if abs(self.control_hz / divisor - round(self.control_hz / divisor)) < 1e-9:
-                rates.append(self.control_hz / divisor)
-            divisor += 1
-        return tuple(rates)
+        ticks = round(self.control_hz)
+        return tuple(float(ticks // n) for n in range(1, ticks + 1) if ticks % n == 0)
 
 
 @dataclass
