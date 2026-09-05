@@ -31,6 +31,8 @@ def test_shape_from_wire_rejects_wrong_param_count():
         shape_from_wire("sphere", [0.1, 0.2], [0, 0, 0, 0, 0, 0], True, None, "s")
     with pytest.raises(ValueError):
         shape_from_wire("box", [0.1], [0, 0, 0, 0, 0, 0], True, None, "b")
+    with pytest.raises(ValueError, match="unknown shape kind 'pyramid'"):
+        shape_from_wire("pyramid", [1.0], [0.0] * 6)
 
 
 def test_construction_rejects_degenerate_values():

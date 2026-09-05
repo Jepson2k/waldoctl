@@ -247,7 +247,11 @@ def shape_from_wire(
     physics: list | None = None,
 ) -> Shape:
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
-    cls = _REGISTRY[kind]
+    cls = _REGISTRY.get(kind)
+    if cls is None:
+        raise ValueError(
+            f"unknown shape kind {kind!r}; expected one of {sorted(_REGISTRY)}"
+        )
     pnames = param_names(cls)
     if len(params) != len(pnames):
         raise ValueError(
