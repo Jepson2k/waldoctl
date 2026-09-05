@@ -8,6 +8,8 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 from numpy.typing import NDArray
 
+from waldoctl.ticks import TickIndex
+
 
 @runtime_checkable
 class IKResult(Protocol):
@@ -78,6 +80,43 @@ class ObjectAwareDryRunResult(Protocol):
 
     object_tracks: tuple[ObjectTrack, ...] | None
     """Per-object pose tracks, or None when the backend previews no physics."""
+
+
+@runtime_checkable
+class SimulatedDryRunResult(Protocol):
+    """A backend whose dry run can also *simulate*, not only plan.
+
+    Separate from ``DryRunResult`` for the same reason
+    ``ObjectAwareDryRunResult`` is: that Protocol is matched structurally
+    by backends pinned to older waldoctl tags, so a new required member
+    would break their conformance. Consumers should use
+    ``getattr(client, "simulate", None)`` and gate on
+    ``Robot.has_physics_simulation``.
+
+    The determinism contract is load-bearing: the same model, the same
+    seed and the same commands must produce a bit-identical record.
+    Hosts skip redraws on an unchanged digest, so a backend that jitters
+    between identical runs makes the display flicker.
+    """
+
+    @property
+    def program_length(self) -> int:
+        """How many commands have been recorded so far.
+
+        A host that wants to map a simulated row back to a source line
+        reads this after each call it makes and attributes the commands
+        that appeared to the line it was on. The client cannot know the
+        line itself — the program is the host's, not the backend's.
+        """
+        ...
+
+    def simulate(self, max_seconds: float | None = None) -> TickIndex:
+        """Run everything planned so far and report what the arm did.
+
+        ``max_seconds`` bounds SIMULATED time, so a program that never
+        terminates still returns, with ``stop = "budget_exhausted"``.
+        """
+        ...
 
 
 @dataclass

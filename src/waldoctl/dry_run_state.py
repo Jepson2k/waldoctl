@@ -23,6 +23,7 @@ import numpy as np
 from nicegui import binding
 
 from waldoctl.notify import ChangeNotifierMixin
+from waldoctl.ticks import TickIndex
 
 
 @dataclass(slots=True)
@@ -168,6 +169,7 @@ class Playback(ChangeNotifierMixin):
         "total_steps",
         "total_duration",
         "final_joints_rad",
+        "ticks_progress",
         "playback",
     ]
 )
@@ -182,11 +184,12 @@ class DryRun(ChangeNotifierMixin):
     ``playback`` sub-object's leaf fields in place. This class carries no
     playback methods of its own.
 
-    ``last_sim_joints_deg`` is intentionally excluded from the bindable
-    field set: it holds a numpy array, and NiceGUI's ``BindableProperty``
-    setter does ``old != new`` which on arrays returns an element-wise
-    array (not a scalar bool), raising ``ValueError`` on assignment. The
-    field is still a normal dataclass attribute; it just isn't reactive.
+    ``last_sim_joints_deg`` and ``ticks`` are intentionally excluded from
+    the bindable field set: they hold numpy arrays, and NiceGUI's
+    ``BindableProperty`` setter does ``old != new`` which on arrays
+    returns an element-wise array (not a scalar bool), raising
+    ``ValueError`` on assignment. They are still normal dataclass
+    attributes; they just aren't reactive.
     """
 
     # Result fields — assigned wholesale by the host when it runs a dry-run.
@@ -200,6 +203,16 @@ class DryRun(ChangeNotifierMixin):
     # Position-drift tracking — "did the robot move since the last sim?"
     final_joints_rad: list[float] | None = None
     last_sim_joints_deg: np.ndarray | None = None
+
+    # What the arm DID, from the backend's physics pass — None until one
+    # has run, and on backends that cannot run one at all. The planned
+    # result above stands alone without it; this refines the picture and
+    # supplies the divergence between the two.
+    ticks: TickIndex | None = None
+    # Progress of the physics pass, 0..1. Playback and scrubbing stay
+    # disabled below 1: a scrub bar over a half-built record would seek
+    # into rows that do not exist yet.
+    ticks_progress: float = 0.0
 
     # Playback sub-object — mutated in place during playback.
     playback: Playback = field(default_factory=Playback)

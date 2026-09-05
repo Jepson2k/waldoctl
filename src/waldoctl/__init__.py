@@ -76,8 +76,10 @@ from waldoctl.results import (
     IKResult,
     IKResultData,
     ObjectAwareDryRunResult,
+    SimulatedDryRunResult,
     ObjectTrack,
 )
+from waldoctl.ticks import ObjectTicks, TickBlock, TickIndex
 from waldoctl.robot import Robot
 from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.robot_status import (
@@ -210,6 +212,10 @@ __all__ = [
     "IKResultData",
     "DryRunResultData",
     "ObjectAwareDryRunResult",
+    "SimulatedDryRunResult",
+    "ObjectTicks",
+    "TickBlock",
+    "TickIndex",
     "ObjectTrack",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",

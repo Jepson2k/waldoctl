@@ -254,6 +254,23 @@ class Robot(ABC):
         """Whether collision checking (self + workspace shapes) is available."""
         return False
 
+    @property
+    def has_physics_simulation(self) -> bool:
+        """Whether this backend's dry run can simulate as well as plan.
+
+        A planning dry run answers where the controller would tell the
+        arm to go. A simulating one drives the same commands through the
+        backend's control loop against a physics plant and reports what
+        the arm did — servo lag, gravity sag, and objects that move
+        because something pushed them.
+
+        False means the host shows the planned trajectory and nothing
+        else, which is how it behaved before any backend could do this.
+        A backend that returns True must also expose ``simulate`` on its
+        dry-run client (see ``SimulatedDryRunResult``).
+        """
+        return False
+
     def in_collision(self, q_rad: NDArray[np.float64]) -> bool:
         """Whether ``q_rad`` (radians) collides — with itself, the attached
         tool, or a workspace keep-out shape."""
