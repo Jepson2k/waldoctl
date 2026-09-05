@@ -28,17 +28,16 @@ class SceneHandle(Protocol):
         ...
 
     @property
-    def floor_z_m(self) -> float | None:
-        """The installation floor height per last readback (``ShapeWorld.floor_z_m``);
-        None when the backend models no floor."""
-        ...
-
-    @property
     def installation_draft(self) -> tuple[Shape, ...]:
-        """Shapes proposed for the installation layer: drawn as a proposal and
-        checked locally, but enforced by the backend only once they are in its
-        robot config — the host exports them as that config's TOML. A draft
-        entry clears itself when readback shows the backend enforcing it."""
+        """Shapes proposed for the installation layer.
+
+        A proposal leaves the layer the backend enforces and is checked by
+        this process instead — local collision queries and the dry run see
+        it, so a layout can be flown against before it is committed — until
+        the robot config declares it, which the host exports as that
+        config's TOML. A proposal clears itself when readback shows the
+        backend enforcing it.
+        """
         ...
 
     def propose_installation(self, names: list[str]) -> None:

@@ -272,24 +272,19 @@ class Robot(ABC):
         return float("inf")
 
     def apply_shapes(self, shapes: list[Shape]) -> None:
-        """Apply program-layer shapes to this process's in-process collision
-        world, for preview and editing-pose queries.
+        """Apply shapes to this process's in-process collision world, for
+        preview and editing-pose queries.
+
+        The installation layer is not settable here: it is the robot's
+        boot-time environment, and a backend whose in-process world is its
+        runtime's own applies it from the config the runtime boots from.  A
+        host holding an installation *proposal* — not in that config yet, so
+        enforced nowhere else — passes it here with the program layer.
 
         This does not touch the backend — ``RobotClient.set_shapes`` does
         that.  A backend whose in-process world is its runtime's own engine
         answers exactly as the runtime will; one that mirrors it separately
         answers as well as the mirror.  No-op without collision checking.
-        """
-
-    def apply_installation_shapes(self, shapes: list[Shape]) -> None:
-        """Apply installation-layer shapes to this process's in-process
-        collision world.
-
-        The installation layer is the robot's boot-time environment.  It is
-        readback truth from the backend (``RobotClient.shapes().installation``),
-        never authored client-side — this exists so a preview can enforce the
-        same world the daemon does, not so a client can define one.  No-op
-        without collision checking.
         """
 
     # -- Lifecycle ----------------------------------------------------------

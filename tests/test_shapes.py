@@ -75,7 +75,6 @@ def test_world_codec_round_trips_both_layers_and_the_floor():
     world = ShapeWorld(
         installation=(Box(name="bench", x=0.4, y=0.4, z=0.05),),
         program=(Sphere(name="ball", radius=0.05, pose=(0.3, 0, 0.3, 0, 0, 0)),),
-        floor_z_m=-0.02,
     )
     assert world_from_dict(world_to_dict(world)) == world
-    assert world_from_dict(world_to_dict(ShapeWorld())).floor_z_m is None
+    assert world_from_dict(world_to_dict(ShapeWorld())) == ShapeWorld()

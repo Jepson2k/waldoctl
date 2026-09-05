@@ -16,6 +16,8 @@ directly — see :class:`Physical`.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
+
 from dataclasses import dataclass, fields
 from typing import cast
 
@@ -228,13 +230,17 @@ _REGISTRY: dict[str, type[ShapeBase]] = {
 }
 
 
-def param_names(cls: type[ShapeBase]) -> list[str]:
+@lru_cache(maxsize=None)
+def param_names(cls: type[ShapeBase]) -> tuple[str, ...]:
     """The coal constructor parameter names of a shape class, in field
     order — every dataclass field that is a dimension rather than a common
     attribute (name, pose, collision, margin, physics). Editors and code
     emitters enumerate a shape's geometry through this, so a new common
-    field cannot masquerade as a dimension anywhere."""
-    return [f.name for f in fields(cls) if f.name not in _COMMON]
+    field cannot masquerade as a dimension anywhere.
+
+    Cached: it depends only on the class, and every render of a shape asks.
+    """
+    return tuple(f.name for f in fields(cls) if f.name not in _COMMON)
 
 
 def shape_from_wire(
@@ -276,16 +282,14 @@ class ShapeWorld:
     ``installation`` comes from the backend's robot config — every program
     inherits it and ``set_shapes`` cannot change it.  ``program`` is the
     last-applied program layer (last-write-wins, persists after program end).
-    ``floor_z_m`` is the installation floor's height, also from the robot
-    config: the backend enforces it as a keep-out (reported as
-    ``install:floor``) and rests simulated objects on it, and a display
-    draws the ground there.  It is not a shape — no program can move it —
-    and ``None`` means the backend models no floor.
+
+    The floor a robot stands on is an ordinary installation shape: a static
+    fixture (``physics`` with no mass) that is a keep-out and a surface
+    things rest on.  It is not a separate concept and needs no field here.
     """
 
     installation: tuple[Shape, ...] = ()
     program: tuple[Shape, ...] = ()
-    floor_z_m: float | None = None
 
 
 # ---------------------------------------------------------------------------

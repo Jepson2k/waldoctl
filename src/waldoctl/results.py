@@ -56,9 +56,14 @@ class ObjectTrack:
     carried: bool
     """True while the object is riding the TCP rather than free."""
     physics: bool
-    """False when the preview fell back to a geometric approximation instead
-    of stepping the simulator — the track is a guess, and consumers should
-    render it as one."""
+    """Whether this track is what the backend's physics says.
+
+    True covers both a stepped simulation and an exactly-equivalent rigid
+    transform — an object welded to the gripper by a grasp, or one nothing
+    touched. False means the backend gave up (a step budget exhausted, no
+    contact simulation at all) and approximated, so the track is a guess and
+    consumers should render it as one.
+    """
 
 
 @runtime_checkable
