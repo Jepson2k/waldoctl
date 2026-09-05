@@ -4,7 +4,7 @@ A shape is a coal collision primitive placed in the world the arm must avoid
 (``collision=True``) or a visual-only marker (``collision=False``). Each kind is
 a frozen dataclass whose fields ARE the coal constructor params, so the wire and
 persisted forms derive from ``dataclasses.fields`` — no per-shape serialize code.
-``kind`` is the lowercased class name (``"box"``, ``"plane"`` …), matching coal's
+``kind`` is the lowercased class name (``"box"``, ``"sphere"`` …), matching coal's
 vocabulary and pinokin's generic ``add_obstacle``.
 
 A shape may additionally declare ``physics`` (see :class:`Physical`), which is
@@ -197,36 +197,10 @@ class Ellipsoid(ShapeBase):
     radius_z: float
 
 
-@dataclass(frozen=True, kw_only=True)
-class Plane(ShapeBase):
-    """Half-space barrier (coal Halfspace): solid on the ``n·x <= offset`` side.
-
-    Roughly three orders of magnitude more expensive per collision query than
-    every other kind — prefer a large :class:`Box` for floors and walls.  Kept
-    for programs that genuinely need an unbounded barrier."""
-
-    nx: float
-    ny: float
-    nz: float
-    offset: float
-
-    def _validate_params(self) -> None:
-        """Params are a normal + offset, not dimensions: finite, normal non-zero."""
-        for name in ("nx", "ny", "nz", "offset"):
-            v = getattr(self, name)
-            if not math.isfinite(v):
-                raise ValueError(
-                    f"plane {self.name!r}: {name} must be finite, got {v!r}"
-                )
-        if self.nx == 0.0 and self.ny == 0.0 and self.nz == 0.0:
-            raise ValueError(f"plane {self.name!r}: normal must be non-zero")
-
-
-Shape = Box | Sphere | Cylinder | Capsule | Cone | Ellipsoid | Plane
+Shape = Box | Sphere | Cylinder | Capsule | Cone | Ellipsoid
 
 _REGISTRY: dict[str, type[ShapeBase]] = {
-    c.__name__.lower(): c
-    for c in (Box, Sphere, Cylinder, Capsule, Cone, Ellipsoid, Plane)
+    c.__name__.lower(): c for c in (Box, Sphere, Cylinder, Capsule, Cone, Ellipsoid)
 }
 
 
@@ -253,11 +227,13 @@ def shape_from_wire(
     physics: list | None = None,
 ) -> Shape:
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
-    cls = _REGISTRY.get(kind)
-    if cls is None:
+    try:
+        cls = _REGISTRY[kind]
+    except KeyError:
         raise ValueError(
-            f"unknown shape kind {kind!r}; expected one of {sorted(_REGISTRY)}"
-        )
+            f"unknown shape kind {kind!r} — wire/persisted data does not "
+            f"match this waldoctl version (known: {', '.join(sorted(_REGISTRY))})"
+        ) from None
     pnames = param_names(cls)
     if len(params) != len(pnames):
         raise ValueError(

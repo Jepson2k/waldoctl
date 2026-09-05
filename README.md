@@ -56,4 +56,5 @@ For guides on implementing a backend or building scripts, see the [PAROL Web Com
 
 ## License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the attribution notices
+redistributors must preserve.

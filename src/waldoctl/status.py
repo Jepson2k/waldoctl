@@ -86,6 +86,21 @@ class StatusBuffer(Protocol):
     link_health: dict
     """Motor-bus link health: ``state`` (backend enum/str), ``restarts``,
     ``tx_errors``, ``rx_frames``. Empty when the backend has no bus."""
+    drive_health: dict
+    """Per-drive analog readings, for watching a joint approach a limit
+    before it faults: ``temperatures_c`` and ``currents_ma`` (one entry per
+    actuator, arm joints first) and ``bus_voltage_v`` (the lowest supply a
+    drive reports, where sag under load shows first). A list is empty when
+    the backend has no such sensor at all; ``NaN`` inside one means that
+    drive has not answered yet. Faults themselves are NOT here — they
+    surface through ``warnings`` and the standing error."""
+    loop_health: dict
+    """Control-loop health as the loop runs: ``p99_period_s`` (the tail is
+    what breaks a control loop, not the mean) and ``overruns`` (ticks that
+    missed their deadline, cumulative). The rest of the loop metrics —
+    mean/min/max, scheduling policy, bus frame age — are boot constants or
+    detail, and stay in the ``loop_stats()`` query. Empty when the backend
+    does not measure its loop."""
     homing: dict
     """Homing progress: ``active``, ``sequence_step``, and per-actuator
     ``joints`` — (state, phase) pairs. Empty when idle and unsupported."""
@@ -146,6 +161,66 @@ class ActivityResult:
     """Brief serialization of current command parameters."""
     error: str
     """Error description (empty if no error)."""
+
+
+Inertia6 = tuple[float, float, float, float, float, float]
+"""Rotational inertia about a centre of mass, end-effector-frame axes,
+``(Ixx, Ixy, Iyy, Ixz, Iyz, Izz)`` [kg m^2]. All zeros is a point mass,
+which is how most payloads are declared."""
+
+
+@dataclass
+class PayloadResult:
+    """What the runtime believes the arm is carrying at the TCP.
+
+    An inertial description, not geometry: it is what the gravity
+    feedforward and torque planning use. A backend carrying nothing
+    reports zeros.
+    """
+
+    mass: float
+    """Payload mass [kg]; 0 = no payload."""
+
+    com: tuple[float, float, float]
+    """Centre of mass in end-effector-frame coordinates [m]."""
+
+    inertia: Inertia6
+    """See :data:`Inertia6`."""
+
+
+@dataclass
+class PayloadEstimate:
+    """What an estimation run measured: mass and centre of mass, never the
+    inertia tensor (static poses cannot excite it).
+
+    ``determined`` is per parameter — mass, then the three first-moment
+    components — and says how much the poses actually fixed, from 0 (they
+    said nothing) to 1 (fixed outright). A wrist with no room to swing
+    comes back near zero and the mass should not be trusted; a backend
+    asked to declare such a result refuses rather than pushing noise into
+    the gravity model.
+    """
+
+    mass: float
+    """Estimated mass [kg]."""
+
+    com: tuple[float, float, float]
+    """Estimated centre of mass in end-effector-frame coordinates [m] —
+    the same frame ``set_payload`` takes, so the estimate is declared
+    unchanged."""
+
+    determined: tuple[float, float, float, float]
+    """Share of each parameter the poses fixed, 0 to 1."""
+
+    rms_nm: float
+    """Torque the estimated load leaves unexplained [Nm]."""
+
+    rms_unloaded_nm: float
+    """Torque an empty model left unexplained [Nm] — how much of the
+    reading was the load at all."""
+
+    poses: int
+    """Poses measured."""
 
 
 @dataclass

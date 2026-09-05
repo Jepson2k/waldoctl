@@ -10,6 +10,9 @@ from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
     LoopStatsResult,
+    Inertia6,
+    PayloadEstimate,
+    PayloadResult,
     PingResult,
     StatusBuffer,
     ToolResult,
@@ -683,6 +686,94 @@ class RobotClient(ABC):
 
         Example:
             offset = rbt.tcp_offset()
+        """
+        raise NotImplementedError
+
+    async def set_payload(
+        self,
+        mass: float,
+        com: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        inertia: Inertia6 | None = None,
+    ) -> int:
+        """Declare what the arm is carrying at the TCP.
+
+        An inertial declaration only: the gravity feedforward and torque
+        planning carry it, the collision geometry does not change (use
+        ``set_shapes`` for that).
+
+        This is what a backend's own model cannot know. A shipped model
+        describes the nominal arm; the mass in the gripper, the fixture
+        bolted to the flange and the spool on the end of it are the
+        operator's, and they move the first moments the gravity model
+        depends on.
+
+        *mass* in kg, 0 clears the payload. *com* is the centre of mass in
+        end-effector-frame metres. *inertia* is an :data:`Inertia6`;
+        omitted means a point mass.
+
+        Invalid input — a negative mass, an inertia that is not positive
+        semidefinite — raises ``RuntimeError`` (a backend's own error type
+        derives from it) rather than returning -1.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_payload(1.2, com=(0.0, 0.0, 0.05))
+        """
+        raise NotImplementedError
+
+    async def estimate_payload(
+        self,
+        spread: float = 0.5,
+        ridge: float = 0.01,
+        declare: bool = True,
+    ) -> PayloadEstimate:
+        """Estimate what the arm is carrying, and declare it.
+
+        Mass and centre of mass, from the torque the arm holds. NOT the
+        inertia tensor: static poses cannot excite it, so the result is
+        carried as a point mass — which is what most payloads are well
+        enough described by. A payload whose inertia matters is declared
+        with ``set_payload`` from its drawing.
+
+        Call it after closing on a part whose mass is not known. **The
+        arm moves**: the backend swings the wrist — where the load's
+        lever arm is, so nothing below moves and the pick is not
+        disturbed — through a few poses, taking seconds.
+
+        The backend clears the declared payload before measuring (the
+        load is found in the torque an *unloaded* model cannot explain)
+        and restores it on every exit that does not declare, failure
+        included. With *declare* (the default) the estimate replaces it,
+        so the gravity model carries the part from the next tick.
+
+        *spread* is how far each wrist joint swings either way, in
+        radians. *ridge* holds back parameters the motion did not
+        measure.
+
+        Raises ``RuntimeError`` (a backend's own error type derives from
+        it) when there is no room to measure, or when *declare* is set
+        and no mass was actually measured — a backend must refuse rather
+        than declare noise.
+
+        Category: Motion
+
+        Example:
+            found = rbt.estimate_payload()
+            print(f"holding {found.mass:.3f} kg")
+        """
+        raise NotImplementedError
+
+    async def payload(self) -> PayloadResult | None:
+        """The payload the runtime is currently carrying.
+
+        Returns ``None`` if the backend is unreachable. A backend that
+        carries no payload reports zeros rather than ``None``.
+
+        Category: Query
+
+        Example:
+            print(rbt.payload())
         """
         raise NotImplementedError
 

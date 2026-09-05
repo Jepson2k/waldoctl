@@ -16,6 +16,7 @@ from waldoctl.discovery import (
     load_robot_class,
     load_tool_spec_class,
 )
+from waldoctl.errors import RobotError
 from waldoctl.dry_run import DryRunClient
 from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
@@ -40,7 +41,6 @@ from waldoctl.shapes import (
     Cone,
     Cylinder,
     Ellipsoid,
-    Plane,
     Shape,
     ShapeBase,
     ShapeWorld,
@@ -91,10 +91,12 @@ from waldoctl.robot_status import (
     CartesianJogAvailability,
     CollisionStatus,
     Controller,
+    DriveHealth,
     FrameJogAvailability,
     Homing,
     Joints,
     LinkHealth,
+    LoopHealth,
     Pose,
     RobotStatus,
     ToolTimeSeries,
@@ -113,6 +115,9 @@ from waldoctl.status import (
     ActionState,
     ActivityResult,
     LoopStatsResult,
+    Inertia6,
+    PayloadEstimate,
+    PayloadResult,
     PingResult,
     StatusBuffer,
     ToolResult,
@@ -219,6 +224,10 @@ __all__ = [
     "ObjectTrack",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
+    "Inertia6",
+    "PayloadEstimate",
+    "RobotError",
+    "PayloadResult",
     "PingResult",
     "ToolResult",
     "ActionState",
@@ -275,7 +284,6 @@ __all__ = [
     "Capsule",
     "Cone",
     "Ellipsoid",
-    "Plane",
     "ShapeWorld",
     "world_from_dict",
     "world_to_dict",
@@ -305,7 +313,9 @@ __all__ = [
     "ToolTimeSeries",
     "Controller",
     "Warnings",
+    "DriveHealth",
     "LinkHealth",
+    "LoopHealth",
     "Homing",
     "ChangeNotifierMixin",
     # Programs surface

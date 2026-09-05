@@ -283,6 +283,34 @@ class LinkHealth(ChangeNotifierMixin):
 
 
 @binding.bindable_dataclass
+class DriveHealth(ChangeNotifierMixin):
+    """Per-drive analog readings, one entry per actuator (arm joints
+    first). A list is empty on a backend whose drives report no such
+    sensor; ``NaN`` inside one means that drive has not answered yet.
+    ``bus_voltage_v`` is the lowest supply any drive reports — sag under
+    load shows up at the loaded drive — and ``None`` when unreported.
+    Drive *faults* are not here; they arrive as warnings or a standing
+    error."""
+
+    temperatures_c: list[float] = field(default_factory=list)
+    currents_ma: list[float] = field(default_factory=list)
+    bus_voltage_v: float | None = None
+
+
+@binding.bindable_dataclass
+class LoopHealth(ChangeNotifierMixin):
+    """Control-loop health as the loop runs: the period tail and the count
+    of ticks that missed their deadline. ``measured`` is False on a backend
+    that does not time its loop, so a display can tell "healthy" from "not
+    reported". Boot constants (target rate, scheduling policy) and the
+    fuller distribution live in the ``loop_stats()`` query."""
+
+    p99_period_s: float = 0.0
+    overruns: int = 0
+    measured: bool = False
+
+
+@binding.bindable_dataclass
 class Homing(ChangeNotifierMixin):
     """Homing progress. ``joints`` is one ``(state, phase)`` name pair per
     actuator (arm joints first), replaced wholesale per change; empty when
@@ -302,7 +330,8 @@ class RobotStatus(ChangeNotifierMixin):
 
     **Mutate-in-place invariant**: the sub-objects (``pose``, ``joints``,
     ``io``, ``tool``, ``action``, ``collision``, ``controller``,
-    ``warnings``, ``link_health``, ``homing``) are constructed once and
+    ``warnings``, ``link_health``, ``drive_health``, ``loop_health``,
+    ``homing``) are constructed once and
     mutated in place. Reassigning any of them orphans every binding
     registered against the previous instance.
     """
@@ -319,5 +348,7 @@ class RobotStatus(ChangeNotifierMixin):
     controller: Controller = field(default_factory=Controller)
     warnings: Warnings = field(default_factory=Warnings)
     link_health: LinkHealth = field(default_factory=LinkHealth)
+    drive_health: DriveHealth = field(default_factory=DriveHealth)
+    loop_health: LoopHealth = field(default_factory=LoopHealth)
     homing: Homing = field(default_factory=Homing)
     last_update: float = 0.0
