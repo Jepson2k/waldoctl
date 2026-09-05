@@ -34,6 +34,22 @@ class SceneHandle(Protocol):
         ...
 
     @property
+    def installation_draft(self) -> tuple[Shape, ...]:
+        """Shapes proposed for the installation layer: drawn as a proposal and
+        checked locally, but enforced by the backend only once they are in its
+        robot config — the host exports them as that config's TOML. A draft
+        entry clears itself when readback shows the backend enforcing it."""
+        ...
+
+    def propose_installation(self, names: list[str]) -> None:
+        """Move the named program-layer shapes into the installation draft."""
+        ...
+
+    def discard_installation_draft(self, names: list[str] | None = None) -> None:
+        """Drop the named draft shapes (all when *names* is None)."""
+        ...
+
+    @property
     def confirmed(self) -> bool:
         """Whether the displayed program layer matches backend readback."""
         ...
