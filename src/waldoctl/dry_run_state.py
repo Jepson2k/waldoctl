@@ -169,7 +169,7 @@ class Playback(ChangeNotifierMixin):
         "total_steps",
         "total_duration",
         "final_joints_rad",
-        "ticks_progress",
+        "ticks_pending",
         "playback",
     ]
 )
@@ -209,10 +209,12 @@ class DryRun(ChangeNotifierMixin):
     # result above stands alone without it; this refines the picture and
     # supplies the divergence between the two.
     ticks: TickIndex | None = None
-    # Progress of the physics pass, 0..1. Playback and scrubbing stay
-    # disabled below 1: a scrub bar over a half-built record would seek
-    # into rows that do not exist yet.
-    ticks_progress: float = 0.0
+    # Whether a physics pass is expected but has not landed. Playback and
+    # scrubbing stay disabled while it is True: a scrub bar over a record
+    # that is still being built seeks into rows that do not exist yet.
+    # False on a backend that cannot simulate, so those hosts behave
+    # exactly as they did before.
+    ticks_pending: bool = False
 
     # Playback sub-object — mutated in place during playback.
     playback: Playback = field(default_factory=Playback)
