@@ -28,6 +28,18 @@ class SceneHandle(Protocol):
         ...
 
     @property
+    def enforced_locally(self) -> list[Shape]:
+        """Everything this process's own collision checker holds: the
+        program layer plus the installation proposal.
+
+        The proposal is enforced nowhere else until the backend's robot
+        config declares it, so a preview or an editing-pose query that
+        wants to see it must ask for this rather than for
+        :attr:`shapes`.
+        """
+        ...
+
+    @property
     def installation_draft(self) -> tuple[Shape, ...]:
         """Shapes proposed for the installation layer.
 
