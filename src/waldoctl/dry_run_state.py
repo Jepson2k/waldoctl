@@ -62,6 +62,13 @@ class PathSegment:
     # First colliding waypoint index in joint_trajectory (host-side collision
     # check against the local checker), or None when clear / not checked.
     collision_step: int | None = None
+    # Where the world's physical objects went over this segment: one dict per
+    # object, ``{"name", "poses", "carried", "physics"}`` with ``poses`` a
+    # list of ``[x, y, z, qw, qx, qy, qz]`` rows aligned with
+    # ``joint_trajectory`` (a single row for an object that did not move).
+    # Plain dicts because segments cross the preview process boundary as
+    # dicts; None when the backend previews no physics.
+    object_tracks: list[dict[str, Any]] | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "PathSegment":
@@ -83,6 +90,9 @@ class ToolAction:
     sleep_offset: float = 0.0
     segment_index: int = -1
     tcp_path: list[list[float]] | None = None
+    # Object motion over the action's own duration (a grasp closing on a
+    # block, a release dropping it), same shape as ``PathSegment.object_tracks``.
+    object_tracks: list[dict[str, Any]] | None = None
 
 
 @dataclass(slots=True)
