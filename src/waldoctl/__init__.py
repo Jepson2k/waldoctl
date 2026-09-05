@@ -32,6 +32,7 @@ from waldoctl.scene import SceneHandle
 from waldoctl.shapes import (
     Physical,
     display_name,
+    param_names,
     geom_name,
     pose_matrix,
     Box,
@@ -258,6 +259,7 @@ __all__ = [
     "Physical",
     "Shape",
     "display_name",
+    "param_names",
     "geom_name",
     "pose_matrix",
     "ShapeBase",

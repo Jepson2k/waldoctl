@@ -142,7 +142,7 @@ class ShapeBase:
 
     def params(self) -> list[float]:
         """The coal constructor params, in field order."""
-        return [getattr(self, f.name) for f in fields(self) if f.name not in _COMMON]
+        return [getattr(self, p) for p in param_names(type(self))]
 
     def to_wire(self) -> tuple:
         """Generic serialization for the wire and persisted storage."""
@@ -228,6 +228,15 @@ _REGISTRY: dict[str, type[ShapeBase]] = {
 }
 
 
+def param_names(cls: type[ShapeBase]) -> list[str]:
+    """The coal constructor parameter names of a shape class, in field
+    order — every dataclass field that is a dimension rather than a common
+    attribute (name, pose, collision, margin, physics). Editors and code
+    emitters enumerate a shape's geometry through this, so a new common
+    field cannot masquerade as a dimension anywhere."""
+    return [f.name for f in fields(cls) if f.name not in _COMMON]
+
+
 def shape_from_wire(
     kind: str,
     params: list[float],
@@ -239,7 +248,7 @@ def shape_from_wire(
 ) -> Shape:
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
     cls = _REGISTRY[kind]
-    pnames = [f.name for f in fields(cls) if f.name not in _COMMON]
+    pnames = param_names(cls)
     if len(params) != len(pnames):
         raise ValueError(
             f"{kind!r} takes {len(pnames)} param(s), got {len(params)} — "
