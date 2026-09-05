@@ -3,6 +3,7 @@ the ``StatusRate`` a status display picks a broadcast rate from."""
 
 from __future__ import annotations
 
+import time
 
 import pytest
 from nicegui import binding
@@ -15,6 +16,8 @@ from waldoctl import (
     ChangeNotifierMixin,
     DriveHealth,
     FrameJogAvailability,
+    LinkHealth,
+    RobotError,
     RobotStatus,
     StatusRate,
     ToolTimeSeries,
@@ -332,17 +335,25 @@ def test_achievable_offers_the_whole_number_divisors_of_the_loop():
     assert 100.0 / 3.0 not in StatusRate(hz=50.0, control_hz=100.0).achievable()
 
 
-def test_achievable_serves_a_loop_rate_that_is_not_a_whole_number():
-    """Backends divide the tick count, so a 62.5 Hz or 1000/3 Hz loop still
-    accepts the whole-number rates that divide it."""
-    assert StatusRate(hz=1.0, control_hz=62.5).achievable() == (62.0, 31.0, 2.0, 1.0)
-    assert StatusRate(hz=1.0, control_hz=1000.0 / 3.0).achievable() == (
-        333.0,
-        111.0,
-        37.0,
-        9.0,
-        3.0,
-        1.0,
+def test_the_reported_set_wins_over_the_derived_guess():
+    """A controller that says what it accepts is believed, even when the
+    derived guess would have offered something else — the guess encodes one
+    backend's rule and a backend whose emitter is a wall-clock timer is not
+    described by it."""
+    reported = StatusRate(hz=30.0, control_hz=250.0, servable=(30.0, 15.0, 7.5))
+    assert reported.achievable() == (30.0, 15.0, 7.5)
+    assert 125.0 not in reported.achievable()
+
+
+def test_a_fractional_loop_rate_is_declined_rather_than_rounded():
+    """A 62.5 Hz loop rounds to 62 under Python's banker's rule and 63 under
+    Rust's — a picker built on either offers rates the other end refuses. So
+    the guess declines, and only a controller-reported set answers here."""
+    assert StatusRate(hz=1.0, control_hz=62.5).achievable() == ()
+    assert StatusRate(hz=1.0, control_hz=1000.0 / 3.0).achievable() == ()
+    assert StatusRate(hz=1.0, control_hz=62.5, servable=(62.5, 31.25)).achievable() == (
+        62.5,
+        31.25,
     )
 
 
@@ -362,7 +373,6 @@ def test_achievable_is_empty_when_the_loop_rate_is_unusable(control_hz):
         (50.0, 250.0),
         (50.0, 100.0),
         (20.0, 100.0),
-        (1.0, 62.5),
         (100.0, 100.0 + 1e-11),
     ],
 )
@@ -371,3 +381,87 @@ def test_the_reported_rate_is_one_of_the_achievable_rates(hz, control_hz):
     round trip into a picker, float noise in the loop rate included —
     otherwise the UI shows no current selection."""
     assert hz in StatusRate(hz=hz, control_hz=control_hz).achievable()
+
+
+# ---------------------------------------------------------------------------
+# LinkHealth
+# ---------------------------------------------------------------------------
+
+
+def test_link_health_reported_covers_counters_without_a_state():
+    """A backend may report bus counters and no state string. Keying
+    availability on ``state`` alone hides that bus completely, which is the
+    one case a fieldbus diagnostic exists to show."""
+    assert LinkHealth().reported is False
+    assert LinkHealth(state="UP").reported is True
+    assert LinkHealth(restarts=3).reported is True
+    assert LinkHealth(tx_errors=7).reported is True
+    assert LinkHealth(rx_frames=1234).reported is True
+
+
+# ---------------------------------------------------------------------------
+# RobotError equality
+# ---------------------------------------------------------------------------
+
+
+def test_two_errors_carrying_the_same_wire_tuple_are_equal():
+    """Warnings arrive as a whole list every status tick. Without value
+    equality each tick looks like a change, and every bound widget redraws
+    at the status rate."""
+    wire = [
+        -1,
+        60,
+        "CAN stale",
+        "no frames for 200 ms",
+        "motion refused",
+        "check wiring",
+    ]
+    assert RobotError.from_wire(wire) == RobotError.from_wire(wire)
+    assert [RobotError.from_wire(wire)] == [RobotError.from_wire(wire)]
+
+    other = list(wire)
+    other[3] = "no frames for 400 ms"
+    assert RobotError.from_wire(wire) != RobotError.from_wire(other)
+    assert RobotError.from_wire(wire) != wire
+
+
+def test_errors_stay_hashable_so_they_can_be_deduped():
+    """Defining ``__eq__`` sets ``__hash__`` to None unless it is defined
+    too, and an exception that cannot go in a set is a trap for any host
+    that dedupes warnings."""
+    wire = [-1, 60, "CAN stale", "cause", "effect", "remedy"]
+    assert len({RobotError.from_wire(wire), RobotError.from_wire(wire)}) == 1
+
+
+# ---------------------------------------------------------------------------
+# ToolTimeSeries decimation
+# ---------------------------------------------------------------------------
+
+
+def test_pushes_faster_than_the_minimum_interval_are_dropped():
+    """A caller pushing at the status rate would fill the window in seconds
+    and spend the session evicting samples no chart resolves. Decimating
+    keeps the same buffer covering a longer span."""
+    series = ToolTimeSeries(max_points=10, min_interval_s=0.05)
+    for _ in range(20):
+        series.push(1.0, 2.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 1, "a burst inside one interval is one sample"
+    assert len(pos) == len(ts)
+
+    time.sleep(0.06)
+    series.push(3.0, 4.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 2
+    assert pos[-1] == 3.0
+
+
+def test_an_undecimated_series_keeps_every_push():
+    """The default must stay lossless — decimation is opt-in, so a caller
+    that already paces its own pushes is unaffected."""
+    series = ToolTimeSeries(max_points=10)
+    for i in range(5):
+        series.push(float(i), 0.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 5
+    assert pos == [0.0, 1.0, 2.0, 3.0, 4.0]

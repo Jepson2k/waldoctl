@@ -21,6 +21,7 @@ from enum import Enum
 import numpy as np
 from nicegui import binding
 
+from waldoctl.errors import RobotError
 from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.status import ActionState
 from waldoctl.tools import ToolStatus
@@ -74,16 +75,32 @@ class ToolTimeSeries:
     dirty flag.
     """
 
-    __slots__ = ("_ts", "_pos", "_cur", "_dirty")
+    __slots__ = ("_cur", "_dirty", "_min_interval_s", "_pos", "_ts")
 
-    def __init__(self, max_points: int = 500) -> None:
+    def __init__(self, max_points: int = 300, min_interval_s: float = 0.0) -> None:
         self._ts: deque[float] = deque(maxlen=max_points)
         self._pos: deque[float] = deque(maxlen=max_points)
         self._cur: deque[float] = deque(maxlen=max_points)
         self._dirty: bool = False
+        self._min_interval_s = min_interval_s
 
     def push(self, position: float, current: float) -> None:
-        self._ts.append(time.time())
+        """Record a sample, unless one landed less than ``min_interval_s``
+        ago.
+
+        A caller pushing at the status rate fills the window in seconds and
+        then spends the rest of the session evicting samples a chart never
+        resolves. Decimating here keeps the same buffer covering a longer
+        span, rather than shrinking the span to cut the cost.
+        """
+        now = time.time()
+        if (
+            self._min_interval_s
+            and self._ts
+            and now - self._ts[-1] < self._min_interval_s
+        ):
+            return
+        self._ts.append(now)
         self._pos.append(position)
         self._cur.append(current)
         self._dirty = True
@@ -261,25 +278,42 @@ class Controller(ChangeNotifierMixin):
 @binding.bindable_dataclass
 class Warnings(ChangeNotifierMixin):
     """Self-clearing warning-class conditions (stale data, degraded loop,
-    failed homing). ``entries`` are structured-error 6-tuples
-    ``(command_index, code, title, cause, effect, remedy)``, replaced
-    wholesale per status tick so bindings fire; empty = all clear. Hard
-    latches surface through the standing error, not here.
+    failed homing), replaced wholesale per status tick so bindings fire;
+    empty = all clear. Hard latches surface through the standing error, not
+    here.
+
+    Entries are :class:`~waldoctl.errors.RobotError`, the same type an
+    unhandled runtime error raises — the wire carries the identical 6-tuple
+    either way, so a host reads ``.title``/``.remedy`` by name rather than
+    decoding a position it has to keep in step with the backend.
     """
 
-    entries: list[tuple] = field(default_factory=list)
+    entries: list[RobotError] = field(default_factory=list)
 
 
 @binding.bindable_dataclass
 class LinkHealth(ChangeNotifierMixin):
-    """Motor-bus link health. ``state`` is the backend link-state enum's
-    name (``"UP"``, ``"ERROR_PASSIVE"``, ``"BUS_OFF"``, …), empty on
-    backends without a fieldbus."""
+    """Motor-bus link health.
+
+    ``state`` is always a plain string here — the backend link-state name
+    (``"UP"``, ``"ERROR_PASSIVE"``, ``"BUS_OFF"``, …), empty on backends
+    without a fieldbus. A host must not expect an enum: the wire dict a
+    backend fills may carry either, and converting is the ingest's job.
+
+    ``reported`` distinguishes "this bus is healthy" from "nobody measured
+    this bus", the same way :attr:`LoopHealth.measured` and
+    :attr:`DriveHealth.reported` do for their surfaces. A backend may report
+    counters without a state string, so no single member answers it.
+    """
 
     state: str = ""
     restarts: int = 0
     tx_errors: int = 0
     rx_frames: int = 0
+
+    @property
+    def reported(self) -> bool:
+        return bool(self.state or self.restarts or self.tx_errors or self.rx_frames)
 
 
 @binding.bindable_dataclass

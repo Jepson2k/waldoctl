@@ -9,8 +9,8 @@ from typing import Any
 from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
-    LoopStatsResult,
     Inertia6,
+    LoopStatsResult,
     PayloadEstimate,
     PayloadResult,
     PingResult,
@@ -710,6 +710,14 @@ class RobotClient(ABC):
 
     async def tcp_offset(self) -> list[float]:
         """Query current TCP offset in mm [x, y, z].
+
+        Returns exactly three values, and **raises** when the controller
+        does not answer. An implementation must not return a zero vector for
+        an unreachable controller: ``[0, 0, 0]`` is a legitimate offset — a
+        tool deliberately cleared — so a caller that receives it as a
+        not-answered sentinel cannot tell "the offset is zero" from "there
+        is no controller", and a host that adopts the readback will quietly
+        erase the offset the user set.
 
         Category: Configuration
 
