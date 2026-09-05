@@ -28,6 +28,12 @@ class SceneHandle(Protocol):
         ...
 
     @property
+    def floor_z_m(self) -> float | None:
+        """The installation floor height per last readback (``ShapeWorld.floor_z_m``);
+        None when the backend models no floor."""
+        ...
+
+    @property
     def confirmed(self) -> bool:
         """Whether the displayed program layer matches backend readback."""
         ...

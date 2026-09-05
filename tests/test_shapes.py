@@ -1,6 +1,7 @@
 """Shape serialization round-trips through the generic introspective wire form."""
 
-from waldoctl import Box, Capsule, Plane, Sphere, shape_from_wire
+from waldoctl import Box, Capsule, Plane, ShapeWorld, Sphere, shape_from_wire
+from waldoctl.world import world_from_dict, world_to_dict
 
 
 def test_shape_wire_round_trip_preserves_every_field():
@@ -66,3 +67,13 @@ def test_construction_rejects_degenerate_values():
     # normal components, zero margin, negative pose coordinates.
     Plane(name="p", nx=0.0, ny=0.0, nz=-1.0, offset=-0.5)
     Box(name="b", x=0.1, y=0.1, z=0.1, pose=(-1, -1, -1, 0, 0, 0), margin=0.0)
+
+
+def test_world_codec_round_trips_both_layers_and_the_floor():
+    world = ShapeWorld(
+        installation=(Box(name="bench", x=0.4, y=0.4, z=0.05),),
+        program=(Sphere(name="ball", radius=0.05, pose=(0.3, 0, 0.3, 0, 0, 0)),),
+        floor_z_m=-0.02,
+    )
+    assert world_from_dict(world_to_dict(world)) == world
+    assert world_from_dict(world_to_dict(ShapeWorld())).floor_z_m is None

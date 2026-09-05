@@ -20,6 +20,7 @@ def world_to_dict(world: ShapeWorld) -> dict[str, Any]:
         "schema": SCHEMA,
         "installation": [list(s.to_wire()) for s in world.installation],
         "program": [list(s.to_wire()) for s in world.program],
+        "floor_z_m": world.floor_z_m,
     }
 
 
@@ -31,4 +32,9 @@ def world_from_dict(data: dict[str, Any]) -> ShapeWorld:
     def layer(key: str) -> tuple[Shape, ...]:
         return tuple(shape_from_wire(*entry) for entry in data.get(key, ()))
 
-    return ShapeWorld(installation=layer("installation"), program=layer("program"))
+    floor = data.get("floor_z_m")
+    return ShapeWorld(
+        installation=layer("installation"),
+        program=layer("program"),
+        floor_z_m=None if floor is None else float(floor),
+    )

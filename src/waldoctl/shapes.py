@@ -272,10 +272,16 @@ class ShapeWorld:
     ``installation`` comes from the backend's robot config — every program
     inherits it and ``set_shapes`` cannot change it.  ``program`` is the
     last-applied program layer (last-write-wins, persists after program end).
+    ``floor_z_m`` is the installation floor's height, also from the robot
+    config: the backend enforces it as a keep-out (reported as
+    ``install:floor``) and rests simulated objects on it, and a display
+    draws the ground there.  It is not a shape — no program can move it —
+    and ``None`` means the backend models no floor.
     """
 
     installation: tuple[Shape, ...] = ()
     program: tuple[Shape, ...] = ()
+    floor_z_m: float | None = None
 
 
 # ---------------------------------------------------------------------------
