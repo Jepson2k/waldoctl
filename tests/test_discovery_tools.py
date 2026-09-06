@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.conftest import install_fake_entry_points
-from waldoctl import ToolSpec, ToolType
+from waldoctl import ToolsCollection, ToolSpec, ToolType
 from waldoctl.discovery import list_tool_specs, load_tool_spec_class
 
 
@@ -60,14 +60,38 @@ def test_load_tool_spec_class_returns_subclass(
     assert cls is _LaserTool
 
 
-def test_tooltype_is_strenum() -> None:
-    """``ToolType.GRIPPER == "gripper"`` so backends can pass strings safely."""
-    assert issubclass(ToolType, str)
-    assert ToolType.GRIPPER == "gripper"
-    assert ToolType.NONE == "none"
+class _Gripperish(ToolSpec):
+    """Concrete tool in the GRIPPER category — the shipped gripper classes are
+    abstract, and this test only needs something that carries the category."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            key="pneumatic_left",
+            display_name="Left",
+            tool_type=ToolType.GRIPPER,
+            tcp_origin=(0.0, 0.0, 0.0),
+            tcp_rpy=(0.0, 0.0, 0.0),
+        )
 
 
-def test_third_party_tool_type_string() -> None:
-    """``ToolSpec`` accepts arbitrary tool-type strings beyond the built-in enum."""
-    tool = _LaserTool()
-    assert tool.tool_type == "laser"
+def test_membership_routes_a_category_and_a_key_to_different_lookups():
+    """``ToolType`` is a ``StrEnum``, so an ``isinstance(item, str)`` branch
+    tested first would swallow a category and answer it against the key
+    table — every category lookup returning False. The source orders the
+    branches to avoid exactly that; this is what pins the ordering.
+    """
+    laser = _LaserTool()  # keyed "laser", typed "laser"
+    grip = _Gripperish()  # keyed "pneumatic_left", typed GRIPPER
+    tools = ToolsCollection((laser, grip))
+
+    # Keys are canonicalised to strip+upper on construction so a plugin tool
+    # registered lowercase is still selectable, which is why the lookup is
+    # against "LASER" and not the "laser" it was declared with.
+    assert "LASER" in tools, "a key resolves through the key table"
+    assert "laser" not in tools, "the key table holds the canonical form"
+    assert "gripper" not in tools, "a category name is not a key"
+    assert ToolType.GRIPPER in tools, "the category matches by tool_type"
+    assert ToolType.NONE not in tools, "no tool carries this category"
+
+    assert tools.by_type(ToolType.GRIPPER) == (grip,)
+    assert tools.by_type("laser") == (laser,), "a plain str category still works"

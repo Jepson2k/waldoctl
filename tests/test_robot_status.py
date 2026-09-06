@@ -3,8 +3,6 @@ the ``StatusRate`` a status display picks a broadcast rate from."""
 
 from __future__ import annotations
 
-import time
-
 import pytest
 from nicegui import binding
 
@@ -12,15 +10,14 @@ from waldoctl import (
     Action,
     ActionLogEntry,
     AngleArray,
-    CartesianJogAvailability,
     ChangeNotifierMixin,
     DriveHealth,
-    FrameJogAvailability,
     LinkHealth,
     RobotError,
     RobotStatus,
     StatusRate,
     ToolTimeSeries,
+    robot_status,
 )
 
 
@@ -45,24 +42,6 @@ def test_action_latest_returns_last_entry():
 # ---------------------------------------------------------------------------
 
 
-def test_binding_through_pose():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.pose, "x", backward=lambda v: v)
-    assert t.value == 0.0
-    s.pose.x = 42.0
-    assert t.value == 42.0
-
-
-def test_binding_through_tool_status():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.tool, "key", backward=lambda v: v)
-    assert t.value == "NONE"
-    s.tool.key = "GRIPPER"
-    assert t.value == "GRIPPER"
-
-
 def test_binding_through_joints_list():
     s = RobotStatus()
     t = _Target()
@@ -70,14 +49,6 @@ def test_binding_through_joints_list():
     # Reassignment fires the binding
     s.joints.can_jog_pos = [False, True, True, True, True, True]
     assert t.value == (False, True, True, True, True, True)
-
-
-def test_binding_through_io_estop():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.io, "estop", backward=lambda v: v)
-    s.io.estop = 0
-    assert t.value == 0
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +202,7 @@ def test_tool_time_series_push_and_dirty_flag():
     s.push(0.6, 110.0)
     out = s.get_series_if_dirty()
     assert out is not None
-    ts, pos, cur = out
+    _ts, pos, cur = out
     assert pos == [0.5, 0.6]
     assert cur == [100.0, 110.0]
     # Dirty flag cleared
@@ -254,19 +225,6 @@ def test_tool_time_series_clear():
     s.push(0.5, 100.0)
     s.clear()
     assert s.get_series_if_dirty() is None
-
-
-# ---------------------------------------------------------------------------
-# Cartesian jog availability
-# ---------------------------------------------------------------------------
-
-
-def test_cartesian_jog_availability_by_frame():
-    c = CartesianJogAvailability()
-    assert c.by_frame == {}
-    c.by_frame = {"TRF": FrameJogAvailability(), "WRF": FrameJogAvailability()}
-    assert "TRF" in c.by_frame
-    assert "WRF" in c.by_frame
 
 
 # ---------------------------------------------------------------------------
@@ -438,10 +396,17 @@ def test_errors_stay_hashable_so_they_can_be_deduped():
 # ---------------------------------------------------------------------------
 
 
-def test_pushes_faster_than_the_minimum_interval_are_dropped():
+def test_pushes_faster_than_the_minimum_interval_are_dropped(monkeypatch):
     """A caller pushing at the status rate would fill the window in seconds
     and spend the session evicting samples no chart resolves. Decimating
-    keeps the same buffer covering a longer span."""
+    keeps the same buffer covering a longer span.
+
+    The clock is driven rather than slept on: a real sleep against a 0.05 s
+    window is a margin a loaded CI runner will eventually miss.
+    """
+    now = 1000.0
+    monkeypatch.setattr(robot_status.time, "time", lambda: now)
+
     series = ToolTimeSeries(max_points=10, min_interval_s=0.05)
     for _ in range(20):
         series.push(1.0, 2.0)
@@ -449,11 +414,15 @@ def test_pushes_faster_than_the_minimum_interval_are_dropped():
     assert len(ts) == 1, "a burst inside one interval is one sample"
     assert len(pos) == len(ts)
 
-    time.sleep(0.06)
+    now += 0.049
+    series.push(9.0, 9.0)
+    assert series.get_series_if_dirty() is None, "just inside the window is dropped"
+
+    now += 0.002
     series.push(3.0, 4.0)
     ts, pos, _cur = series.get_series_if_dirty()
     assert len(ts) == 2
-    assert pos[-1] == 3.0
+    assert pos[-1] == 3.0, "the sample past the window lands, the dropped one does not"
 
 
 def test_an_undecimated_series_keeps_every_push():

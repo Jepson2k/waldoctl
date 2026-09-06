@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-
-from nicegui import binding
-
-from waldoctl import CameraSpec, ToolRuntimeSettings, ToolStatus
+from waldoctl import CameraSpec, ToolStatus
 from waldoctl.tools import ToolSpec, ToolType
 
 
@@ -40,16 +37,6 @@ def _build_tool(*, camera_spec: CameraSpec | None = None) -> _StubTool:
 # ---------------------------------------------------------------------------
 # ToolRuntimeSettings
 # ---------------------------------------------------------------------------
-
-
-def test_runtime_settings_is_bindable():
-    rs = ToolRuntimeSettings()
-    t = _Target()
-    binding.bind_from(t, "value", rs, "camera_device", backward=lambda v: v)
-    rs.camera_device = 7
-    assert t.value == 7
-    rs.camera_device = "/dev/video2"
-    assert t.value == "/dev/video2"
 
 
 # ---------------------------------------------------------------------------

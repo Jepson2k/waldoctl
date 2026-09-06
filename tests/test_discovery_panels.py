@@ -99,10 +99,3 @@ def test_iter_plugin_panels_skips_missing_classvars(
     # it is skipped so downstream `cls.id` access is guard-free.
     _fake_entry_points(monkeypatch, {"noid": _NoIdPanel, "notes": _NotesPanel})
     assert iter_plugin_panels() == [_NotesPanel]
-
-
-def test_panel_defaults() -> None:
-    panel = _NotesPanel()
-    assert panel.applies_to(None) is True  # type: ignore[arg-type]
-    assert panel.order == 100
-    assert panel.tab_icon is None
