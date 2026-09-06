@@ -26,6 +26,10 @@ Core operations are `@abstractmethod`; advanced features like circular moves or 
 
 A lightweight shortcut for quick TCP path visualization and basic path verification. Unlike the full simulation mode available on the regular async/sync clients (which ticks the entire controller loop), the dry-run client just runs the motion planner and returns the resulting TCP trajectories and joint paths directly -- fast enough for interactive preview without standing up a full simulated robot.
 
+### World
+
+A `Shape` (`Box`, `Sphere`, `Cylinder`, `Capsule`, `Cone`, `Ellipsoid`) is one thing in the robot's world, in metres and radians. What it *is* follows from what it declares: `collision=False` is a visual marker, a plain shape is a keep-out, and a shape carrying `physics=Physical(...)` is also a body in a backend's contact simulation -- a static fixture without `mass`, a free object with one. `ShapeWorld` is a backend's applied world as read back: the `installation` layer from its robot config, the `program` layer the last `set_shapes` applied, and `floor_z_m`, the installation floor the backend enforces and rests objects on. `waldoctl.world` is the one JSON codec for a saved world, a library object or an import/export document. `ObjectTrack` reports where a physical object went during a previewed program, and `SceneHandle` is a plugin's window into the host's 3D scene, including proposing shapes for the installation layer.
+
 ### Tools
 
 A `ToolSpec` describes an end-of-arm tool: TCP offset, 3D mesh descriptors for visualization, motion descriptors (linear jaws, rotary spindles) for animation, UI button configuration, process data channels, and named variants for swapping configurations (e.g. different jaw sets). The typed hierarchy (`ToolSpec` → `GripperTool` → `PneumaticGripperTool` / `ElectricGripperTool`) lets frontends render tool controls and animate tool parts generically without hard-coding knowledge of specific tools.
@@ -40,7 +44,11 @@ A `ToolSpec` describes an end-of-arm tool: TCP offset, 3D mesh descriptors for v
 | `tools` | Tool hierarchy, mesh/motion descriptors, enums, `ToolStatus` |
 | `joints` | Frozen dataclasses for joint configuration and limits |
 | `status` | `StatusBuffer` protocol for real-time state, query result types |
-| `results` | `IKResult` and `DryRunResult` protocols with concrete dataclasses |
+| `results` | `IKResult` and `DryRunResult` protocols with concrete dataclasses; `ObjectTrack` |
+| `shapes` | `Shape` kinds, `Physical`, `ShapeWorld`, the wire form and the reporting vocabulary |
+| `world` | JSON codec for a `ShapeWorld` -- saved worlds, library entries, import/export |
+| `scene` | `SceneHandle` protocol -- a plugin's window into the host's 3D scene |
+| `dry_run_state` | `PathSegment`, `ToolAction` and the other dry-run records a host keeps |
 | `types` | `Frame` and `Axis` type aliases |
 | `sync_tools` | Sync wrappers for async tool methods |
 

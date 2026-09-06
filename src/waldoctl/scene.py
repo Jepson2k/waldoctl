@@ -28,6 +28,39 @@ class SceneHandle(Protocol):
         ...
 
     @property
+    def enforced_locally(self) -> list[Shape]:
+        """Everything this process's own collision checker holds: the
+        program layer plus the installation proposal.
+
+        The proposal is enforced nowhere else until the backend's robot
+        config declares it, so a preview or an editing-pose query that
+        wants to see it must ask for this rather than for
+        :attr:`shapes`.
+        """
+        ...
+
+    @property
+    def installation_draft(self) -> tuple[Shape, ...]:
+        """Shapes proposed for the installation layer.
+
+        A proposal leaves the layer the backend enforces and is checked by
+        this process instead — local collision queries and the dry run see
+        it, so a layout can be flown against before it is committed — until
+        the robot config declares it, which the host exports as that
+        config's TOML. A proposal clears itself when readback shows the
+        backend enforcing it.
+        """
+        ...
+
+    def propose_installation(self, names: list[str]) -> None:
+        """Move the named program-layer shapes into the installation draft."""
+        ...
+
+    def discard_installation_draft(self, names: list[str] | None = None) -> None:
+        """Drop the named draft shapes (all when *names* is None)."""
+        ...
+
+    @property
     def confirmed(self) -> bool:
         """Whether the displayed program layer matches backend readback."""
         ...

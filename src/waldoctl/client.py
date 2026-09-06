@@ -472,6 +472,13 @@ class RobotClient(ABC):
         shapes.  Installation-layer shapes (declared in the backend's robot
         config) are unaffected — programs inherit them and cannot remove them.
 
+        A shape carrying ``physics`` (see ``waldoctl.Physical``) also enters
+        the simulator's contact world — static when ``mass`` is None, a free
+        body otherwise.  A visual-only marker (``collision=False``) cannot
+        declare ``physics``; the backend rejects the whole list.  Backends
+        without a physics simulator reject any shape declaring it rather than
+        silently ignoring the declaration.
+
         The change also invalidates committed motion: the backend re-guards
         the currently-streaming trajectory's remaining path and every queued
         trajectory before it starts, halting with a collision error rather

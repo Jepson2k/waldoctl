@@ -1,6 +1,7 @@
 """Shape serialization round-trips through the generic introspective wire form."""
 
-from waldoctl import Box, Capsule, Sphere, shape_from_wire
+from waldoctl import Box, Capsule, ShapeWorld, Sphere, shape_from_wire
+from waldoctl.world import world_from_dict, world_to_dict
 
 
 def test_shape_wire_round_trip_preserves_every_field():
@@ -31,6 +32,8 @@ def test_shape_from_wire_rejects_wrong_param_count():
         shape_from_wire("plane", [0, 0, 1, 0.5], [0, 0, 0, 0, 0, 0], True, None, "p")
     with pytest.raises(ValueError):
         shape_from_wire("box", [0.1], [0, 0, 0, 0, 0, 0], True, None, "b")
+    with pytest.raises(ValueError, match="unknown shape kind 'pyramid'"):
+        shape_from_wire("pyramid", [1.0], [0.0] * 6)
 
 
 def test_construction_rejects_degenerate_values():
@@ -64,3 +67,12 @@ def test_construction_rejects_degenerate_values():
     # Legitimate non-dimension values stay legal: zero margin, negative
     # pose coordinates.
     Box(name="b", x=0.1, y=0.1, z=0.1, pose=(-1, -1, -1, 0, 0, 0), margin=0.0)
+
+
+def test_world_codec_round_trips_both_layers_and_the_floor():
+    world = ShapeWorld(
+        installation=(Box(name="bench", x=0.4, y=0.4, z=0.05),),
+        program=(Sphere(name="ball", radius=0.05, pose=(0.3, 0, 0.3, 0, 0, 0)),),
+    )
+    assert world_from_dict(world_to_dict(world)) == world
+    assert world_from_dict(world_to_dict(ShapeWorld())) == ShapeWorld()
