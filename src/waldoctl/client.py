@@ -9,12 +9,13 @@ from typing import Any
 from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
-    LoopStatsResult,
     Inertia6,
+    LoopStatsResult,
     PayloadEstimate,
     PayloadResult,
     PingResult,
     StatusBuffer,
+    StatusRate,
     ToolResult,
 )
 from waldoctl.tools import ToolSpec
@@ -397,6 +398,34 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    async def set_status_rate(self, hz: float) -> int:
+        """Set the rate the controller broadcasts status at.
+
+        Raising it costs bandwidth and consumer CPU continuously, so it is
+        a knob for a debugging or tuning session rather than a permanent
+        setting. A rate the controller cannot divide its control loop into
+        is rejected rather than snapped to a neighbour — a silently
+        different rate than the one asked for makes any capture taken at it
+        wrong in a way nothing reports.
+
+        Category: Configuration
+
+        Example:
+            rbt.set_status_rate(125)
+        """
+        raise NotImplementedError
+
+    async def status_rate(self) -> StatusRate | None:
+        """Current broadcast rate and the control rate it divides; ``None``
+        when unreachable.
+
+        Category: Query
+
+        Example:
+            rate = rbt.status_rate()
+        """
+        raise NotImplementedError
+
     async def simulator(self, enabled: bool) -> int:
         """Enable or disable simulator mode.
 
@@ -681,6 +710,14 @@ class RobotClient(ABC):
 
     async def tcp_offset(self) -> list[float]:
         """Query current TCP offset in mm [x, y, z].
+
+        Returns exactly three values, and **raises** when the controller
+        does not answer. An implementation must not return a zero vector for
+        an unreachable controller: ``[0, 0, 0]`` is a legitimate offset — a
+        tool deliberately cleared — so a caller that receives it as a
+        not-answered sentinel cannot tell "the offset is zero" from "there
+        is no controller", and a host that adopts the readback will quietly
+        erase the offset the user set.
 
         Category: Configuration
 

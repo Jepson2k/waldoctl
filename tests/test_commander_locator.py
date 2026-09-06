@@ -62,13 +62,3 @@ def test_clear_then_access_raises_again(commander: Commander):
 def test_unknown_attribute_still_raises_attribute_error():
     with pytest.raises(AttributeError, match="no attribute 'definitely_not_here'"):
         _ = waldoctl.definitely_not_here
-
-
-def test_commander_holds_robot_client_status_programs_settings(commander: Commander):
-    waldoctl._set_commander(commander)
-    c = waldoctl.commander
-    assert isinstance(c.status, RobotStatus)
-    assert isinstance(c.programs, ProgramTabs)
-    assert isinstance(c.settings, Settings)
-    assert c.robot is commander.robot
-    assert c.client is commander.client

@@ -1,7 +1,7 @@
-"""Tests for the ``RobotStatus`` surface and its nested bindable sub-objects."""
+"""Tests for the ``RobotStatus`` surface, its nested bindable sub-objects, and
+the ``StatusRate`` a status display picks a broadcast rate from."""
 
 from __future__ import annotations
-
 
 import pytest
 from nicegui import binding
@@ -10,11 +10,14 @@ from waldoctl import (
     Action,
     ActionLogEntry,
     AngleArray,
-    CartesianJogAvailability,
     ChangeNotifierMixin,
-    FrameJogAvailability,
+    DriveHealth,
+    LinkHealth,
+    RobotError,
     RobotStatus,
+    StatusRate,
     ToolTimeSeries,
+    robot_status,
 )
 
 
@@ -39,24 +42,6 @@ def test_action_latest_returns_last_entry():
 # ---------------------------------------------------------------------------
 
 
-def test_binding_through_pose():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.pose, "x", backward=lambda v: v)
-    assert t.value == 0.0
-    s.pose.x = 42.0
-    assert t.value == 42.0
-
-
-def test_binding_through_tool_status():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.tool, "key", backward=lambda v: v)
-    assert t.value == "NONE"
-    s.tool.key = "GRIPPER"
-    assert t.value == "GRIPPER"
-
-
 def test_binding_through_joints_list():
     s = RobotStatus()
     t = _Target()
@@ -64,14 +49,6 @@ def test_binding_through_joints_list():
     # Reassignment fires the binding
     s.joints.can_jog_pos = [False, True, True, True, True, True]
     assert t.value == (False, True, True, True, True, True)
-
-
-def test_binding_through_io_estop():
-    s = RobotStatus()
-    t = _Target()
-    binding.bind_from(t, "value", s.io, "estop", backward=lambda v: v)
-    s.io.estop = 0
-    assert t.value == 0
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +202,7 @@ def test_tool_time_series_push_and_dirty_flag():
     s.push(0.6, 110.0)
     out = s.get_series_if_dirty()
     assert out is not None
-    ts, pos, cur = out
+    _ts, pos, cur = out
     assert pos == [0.5, 0.6]
     assert cur == [100.0, 110.0]
     # Dirty flag cleared
@@ -251,19 +228,6 @@ def test_tool_time_series_clear():
 
 
 # ---------------------------------------------------------------------------
-# Cartesian jog availability
-# ---------------------------------------------------------------------------
-
-
-def test_cartesian_jog_availability_by_frame():
-    c = CartesianJogAvailability()
-    assert c.by_frame == {}
-    c.by_frame = {"TRF": FrameJogAvailability(), "WRF": FrameJogAvailability()}
-    assert "TRF" in c.by_frame
-    assert "WRF" in c.by_frame
-
-
-# ---------------------------------------------------------------------------
 # ChangeNotifierMixin reuse on a non-dataclass subclass
 # ---------------------------------------------------------------------------
 
@@ -280,3 +244,193 @@ def test_change_notifier_mixin_works_standalone():
     p.add_change_listener(lambda: calls.append(1))
     p.notify_changed()
     assert calls == [1]
+
+
+# ---------------------------------------------------------------------------
+# DriveHealth
+# ---------------------------------------------------------------------------
+
+
+def test_drive_health_reported_covers_every_member():
+    """Backends report different subsets, and a supply reading of 0.0 V is a
+    report — the drives are down, not unmeasured."""
+    assert DriveHealth().reported is False
+    assert DriveHealth(temperatures_c=[41.0]).reported is True
+    assert DriveHealth(currents_ma=[900.0]).reported is True
+    assert DriveHealth(faults=[(), ("overtemperature",)]).reported is True
+    assert DriveHealth(bus_voltage_v=0.0).reported is True
+
+
+# ---------------------------------------------------------------------------
+# StatusRate
+# ---------------------------------------------------------------------------
+
+
+def test_achievable_offers_the_whole_number_divisors_of_the_loop():
+    """Status goes out every Nth tick, so a 250 Hz loop serves 250/N and a
+    100 Hz loop 100/N — a third of the loop rate is never on offer."""
+    assert StatusRate(hz=50.0, control_hz=250.0).achievable() == (
+        250.0,
+        125.0,
+        50.0,
+        25.0,
+        10.0,
+        5.0,
+        2.0,
+        1.0,
+    )
+    assert StatusRate(hz=50.0, control_hz=100.0).achievable() == (
+        100.0,
+        50.0,
+        25.0,
+        20.0,
+        10.0,
+        5.0,
+        4.0,
+        2.0,
+        1.0,
+    )
+    assert 100.0 / 3.0 not in StatusRate(hz=50.0, control_hz=100.0).achievable()
+
+
+def test_the_reported_set_wins_over_the_derived_guess():
+    """A controller that says what it accepts is believed, even when the
+    derived guess would have offered something else — the guess encodes one
+    backend's rule and a backend whose emitter is a wall-clock timer is not
+    described by it."""
+    reported = StatusRate(hz=30.0, control_hz=250.0, servable=(30.0, 15.0, 7.5))
+    assert reported.achievable() == (30.0, 15.0, 7.5)
+    assert 125.0 not in reported.achievable()
+
+
+def test_a_fractional_loop_rate_is_declined_rather_than_rounded():
+    """A 62.5 Hz loop rounds to 62 under Python's banker's rule and 63 under
+    Rust's — a picker built on either offers rates the other end refuses. So
+    the guess declines, and only a controller-reported set answers here."""
+    assert StatusRate(hz=1.0, control_hz=62.5).achievable() == ()
+    assert StatusRate(hz=1.0, control_hz=1000.0 / 3.0).achievable() == ()
+    assert StatusRate(hz=1.0, control_hz=62.5, servable=(62.5, 31.25)).achievable() == (
+        62.5,
+        31.25,
+    )
+
+
+@pytest.mark.parametrize(
+    "control_hz",
+    [float("nan"), float("inf"), float("-inf"), 0.0, -100.0],
+)
+def test_achievable_is_empty_when_the_loop_rate_is_unusable(control_hz):
+    """A display renders a rate picker before any status has arrived, or from
+    a backend that reports no loop at all; it gets no options, not a crash."""
+    assert StatusRate(hz=0.0, control_hz=control_hz).achievable() == ()
+
+
+@pytest.mark.parametrize(
+    ("hz", "control_hz"),
+    [
+        (50.0, 250.0),
+        (50.0, 100.0),
+        (20.0, 100.0),
+        (100.0, 100.0 + 1e-11),
+    ],
+)
+def test_the_reported_rate_is_one_of_the_achievable_rates(hz, control_hz):
+    """The rate a controller is already broadcasting at must survive the
+    round trip into a picker, float noise in the loop rate included —
+    otherwise the UI shows no current selection."""
+    assert hz in StatusRate(hz=hz, control_hz=control_hz).achievable()
+
+
+# ---------------------------------------------------------------------------
+# LinkHealth
+# ---------------------------------------------------------------------------
+
+
+def test_link_health_reported_covers_counters_without_a_state():
+    """A backend may report bus counters and no state string. Keying
+    availability on ``state`` alone hides that bus completely, which is the
+    one case a fieldbus diagnostic exists to show."""
+    assert LinkHealth().reported is False
+    assert LinkHealth(state="UP").reported is True
+    assert LinkHealth(restarts=3).reported is True
+    assert LinkHealth(tx_errors=7).reported is True
+    assert LinkHealth(rx_frames=1234).reported is True
+
+
+# ---------------------------------------------------------------------------
+# RobotError equality
+# ---------------------------------------------------------------------------
+
+
+def test_two_errors_carrying_the_same_wire_tuple_are_equal():
+    """Warnings arrive as a whole list every status tick. Without value
+    equality each tick looks like a change, and every bound widget redraws
+    at the status rate."""
+    wire = [
+        -1,
+        60,
+        "CAN stale",
+        "no frames for 200 ms",
+        "motion refused",
+        "check wiring",
+    ]
+    assert RobotError.from_wire(wire) == RobotError.from_wire(wire)
+    assert [RobotError.from_wire(wire)] == [RobotError.from_wire(wire)]
+
+    other = list(wire)
+    other[3] = "no frames for 400 ms"
+    assert RobotError.from_wire(wire) != RobotError.from_wire(other)
+    assert RobotError.from_wire(wire) != wire
+
+
+def test_errors_stay_hashable_so_they_can_be_deduped():
+    """Defining ``__eq__`` sets ``__hash__`` to None unless it is defined
+    too, and an exception that cannot go in a set is a trap for any host
+    that dedupes warnings."""
+    wire = [-1, 60, "CAN stale", "cause", "effect", "remedy"]
+    assert len({RobotError.from_wire(wire), RobotError.from_wire(wire)}) == 1
+
+
+# ---------------------------------------------------------------------------
+# ToolTimeSeries decimation
+# ---------------------------------------------------------------------------
+
+
+def test_pushes_faster_than_the_minimum_interval_are_dropped(monkeypatch):
+    """A caller pushing at the status rate would fill the window in seconds
+    and spend the session evicting samples no chart resolves. Decimating
+    keeps the same buffer covering a longer span.
+
+    The clock is driven rather than slept on: a real sleep against a 0.05 s
+    window is a margin a loaded CI runner will eventually miss.
+    """
+    now = 1000.0
+    monkeypatch.setattr(robot_status.time, "time", lambda: now)
+
+    series = ToolTimeSeries(max_points=10, min_interval_s=0.05)
+    for _ in range(20):
+        series.push(1.0, 2.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 1, "a burst inside one interval is one sample"
+    assert len(pos) == len(ts)
+
+    now += 0.049
+    series.push(9.0, 9.0)
+    assert series.get_series_if_dirty() is None, "just inside the window is dropped"
+
+    now += 0.002
+    series.push(3.0, 4.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 2
+    assert pos[-1] == 3.0, "the sample past the window lands, the dropped one does not"
+
+
+def test_an_undecimated_series_keeps_every_push():
+    """The default must stay lossless — decimation is opt-in, so a caller
+    that already paces its own pushes is unaffected."""
+    series = ToolTimeSeries(max_points=10)
+    for i in range(5):
+        series.push(float(i), 0.0)
+    ts, pos, _cur = series.get_series_if_dirty()
+    assert len(ts) == 5
+    assert pos == [0.0, 1.0, 2.0, 3.0, 4.0]

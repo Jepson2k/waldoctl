@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Protocol, runtime_checkable
@@ -87,13 +88,17 @@ class StatusBuffer(Protocol):
     """Motor-bus link health: ``state`` (backend enum/str), ``restarts``,
     ``tx_errors``, ``rx_frames``. Empty when the backend has no bus."""
     drive_health: dict
-    """Per-drive analog readings, for watching a joint approach a limit
-    before it faults: ``temperatures_c`` and ``currents_ma`` (one entry per
-    actuator, arm joints first) and ``bus_voltage_v`` (the lowest supply a
-    drive reports, where sag under load shows first). A list is empty when
-    the backend has no such sensor at all; ``NaN`` inside one means that
-    drive has not answered yet. Faults themselves are NOT here — they
-    surface through ``warnings`` and the standing error."""
+    """Per-drive readings and faults, for watching a joint approach a limit
+    and for seeing which drive tripped: ``temperatures_c`` and
+    ``currents_ma`` (one entry per actuator, arm joints first),
+    ``bus_voltage_v`` (the lowest supply a drive reports, where sag under
+    load shows first), and ``faults`` — a sequence of active fault labels
+    per drive in the backend's own vocabulary. A list is empty when the
+    backend reports nothing of that kind at all; ``NaN`` inside a reading
+    means that drive has not answered yet, and an empty label sequence (a
+    list on one backend, a tuple on another) means a healthy drive. A
+    backend may report faults without analog registers or the reverse, so
+    test the member you need rather than assuming they arrive together."""
     loop_health: dict
     """Control-loop health as the loop runs: ``p99_period_s`` (the tail is
     what breaks a control loop, not the mean) and ``overruns`` (ticks that
@@ -147,6 +152,58 @@ class LoopStatsResult:
     """Whether the control thread runs under a real-time scheduling policy."""
     rt_pinned: bool
     """Whether the control thread is pinned to its configured CPU."""
+
+
+#: How far a reported loop rate may sit from a whole number and still be
+#: read as that number. Wide enough for float noise on the wire, far too
+#: narrow to swallow a half-integer.
+_RATE_EPS = 1e-6
+
+
+@dataclass(frozen=True)
+class StatusRate:
+    """The status broadcast rate, the loop it derives from, and the rates
+    the controller will accept.
+
+    ``servable`` is the controller's own answer. Deriving that set on the
+    client means encoding one backend's rule — "every Nth tick, whole
+    numbers only" — as if it were every backend's, and two implementations
+    of one rule drift: they disagree on rounding, and a backend whose
+    emitter is a wall-clock timer rather than a tick divider is not
+    described by it at all. Asking is also the only way a caller can pick a
+    rate that will be accepted rather than discovering the constraint by
+    rejection.
+    """
+
+    hz: float
+    """Rate the controller is broadcasting at now."""
+    control_hz: float
+    """Control-loop rate the broadcast divides."""
+    servable: tuple[float, ...] = ()
+    """Rates this controller accepts, highest first, as it reports them.
+    Empty from a backend that reports no set — see :meth:`achievable`."""
+
+    def achievable(self) -> tuple[float, ...]:
+        """The rates to offer a user: what the controller reported, or a
+        best guess when it reported nothing.
+
+        The fallback assumes the every-Nth-tick rule and so is only a guess.
+        It absorbs float noise in the loop rate but refuses to round a
+        genuinely fractional one: a 62.5 Hz loop is 62 to Python and 63 to
+        Rust, and two ends of a connection rounding a half-integer
+        differently is how a picker ends up offering only rates the
+        controller refuses. Answering nothing is the honest result — the
+        controller's own ``servable`` is what covers that case.
+        """
+        if self.servable:
+            return self.servable
+        if not math.isfinite(self.control_hz) or self.control_hz <= 0.0:
+            return ()
+        nearest = round(self.control_hz)
+        if nearest <= 0 or abs(self.control_hz - nearest) > _RATE_EPS:
+            return ()
+        ticks = int(nearest)
+        return tuple(float(ticks // n) for n in range(1, ticks + 1) if ticks % n == 0)
 
 
 @dataclass

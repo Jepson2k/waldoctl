@@ -120,6 +120,7 @@ from waldoctl.status import (
     PayloadResult,
     PingResult,
     StatusBuffer,
+    StatusRate,
     ToolResult,
 )
 from waldoctl.tools import (
@@ -224,6 +225,7 @@ __all__ = [
     "ObjectTrack",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
+    "StatusRate",
     "Inertia6",
     "PayloadEstimate",
     "RobotError",
