@@ -52,6 +52,16 @@ class RobotClient(ABC):
     Success is ``>= 0`` for queued motion, ``> 0`` for everything else.
     """
 
+    @property
+    def skill_capabilities(self) -> frozenset[str]:
+        """Operations implemented by this client for skill requirement checks.
+
+        These two operations are required by this ABC. Optional features must
+        be advertised by their backend only when implemented. Capability names
+        describe operations, not certification or current robot readiness.
+        """
+        return frozenset({"motion.joint", "motion.linear"})
+
     @abstractmethod
     async def close(self) -> None:
         """Release resources and disconnect."""
