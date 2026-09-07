@@ -581,8 +581,11 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def io(self) -> list[int] | None:
-        """Digital I/O state.
+    async def io(self, *, timeout: float | None = None) -> list[int] | None:
+        """Digital I/O state; None if no reply arrives before the deadline.
+
+        ``timeout`` bounds the complete query, including transport setup and
+        retries. None keeps the backend's configured request timeout.
 
         Category: Query
 
@@ -879,8 +882,14 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    async def write_io(self, index: int, value: int) -> int:
+    async def write_io(
+        self, index: int, value: int, *, timeout: float | None = None
+    ) -> int:
         """Set digital output by logical index (0 = first output pin).
+
+        ``timeout`` bounds command acceptance, including transport setup and
+        retries. Expiry raises TimeoutError; application is then unconfirmed.
+        None keeps the backend's configured request timeout.
 
         Category: I/O
 

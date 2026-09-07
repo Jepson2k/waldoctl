@@ -78,3 +78,16 @@ meshes and inertial frames remain attached to their registered links.
 
 [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the attribution notices
 redistributors must preserve.
+
+`SetupSnapshot.signals` maps names to immutable `DigitalSignal` values: backend,
+input/output bank, zero-based channel, expected bank sizes, and active-high or
+active-low polarity. Decoding refuses a different controller layout. The E-stop
+status bit is excluded from the channel banks.
+
+`RobotClient.io(timeout=...)` bounds the entire query and returns `None` without
+a reply. `write_io(..., timeout=...)` bounds acceptance and raises `TimeoutError`
+when it remains unconfirmed. Both retain their configured client timeouts when
+omitted. Backends implementing this contract advertise `io.digital`; preview
+clients additionally advertise `execution.preview`. `SignalObservation` and
+`SignalWaitResult` carry logical levels, host receipt timestamps, and distinct
+matched/timeout outcomes. The I/O skills live in `waldo_commander.skills`.
