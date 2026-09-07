@@ -1,4 +1,4 @@
-"""Immutable named setup snapshots; all transforms use millimetres and degrees.
+"""Immutable named setup snapshots; transforms use mm and intrinsic XYZ degrees.
 
 Frames are static parents of other frames or poses. Resolution produces ordinary
 WRF numeric poses, so existing client planning, collision checking and stepping
@@ -16,8 +16,6 @@ from typing import Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
-
-from waldoctl.shapes import pose_matrix
 
 PoseValues = tuple[float, float, float, float, float, float]
 ParameterValue = bool | int | float | str
@@ -46,10 +44,16 @@ def _values(values: Sequence[float]) -> PoseValues:
 
 
 def _matrix(values: PoseValues) -> NDArray[np.float64]:
-    result = pose_matrix(
-        [*(v / 1000 for v in values[:3]), *(math.radians(v) for v in values[3:])]
-    )
-    result[:3, 3] *= 1000
+    roll, pitch, yaw = map(math.radians, values[3:])
+    cr, sr = math.cos(roll), math.sin(roll)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
+    ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
+    rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
+    result = np.eye(4)
+    result[:3, :3] = rx @ ry @ rz
+    result[:3, 3] = values[:3]
     return result
 
 
@@ -92,13 +96,13 @@ class Pose:
             raise ValueError(
                 "Transform must contain a proper rotation and homogeneous last row"
             )
-        horizontal = math.hypot(rotation[0, 0], rotation[1, 0])
-        pitch = math.atan2(-rotation[2, 0], horizontal)
+        horizontal = math.hypot(rotation[0, 0], rotation[0, 1])
+        pitch = math.atan2(rotation[0, 2], horizontal)
         if horizontal > 1e-9:
-            roll = math.atan2(rotation[2, 1], rotation[2, 2])
-            yaw = math.atan2(rotation[1, 0], rotation[0, 0])
+            roll = math.atan2(-rotation[1, 2], rotation[2, 2])
+            yaw = math.atan2(-rotation[0, 1], rotation[0, 0])
         else:
-            roll = math.atan2(-rotation[1, 2], rotation[1, 1])
+            roll = math.atan2(rotation[2, 1], rotation[1, 1])
             yaw = 0.0
         return cls(
             cast(
