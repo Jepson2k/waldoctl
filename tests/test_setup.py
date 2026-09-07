@@ -34,6 +34,17 @@ def test_fixture_update_moves_shared_poses_without_mutating_loaded_values():
         moved.resolve("pick").values
     )
 
+    turned = SetupSnapshot(
+        frames={"fixture": Frame((100, 200, 300, 90, 0, 90))},
+        poses={"pick": Pose((10, 0, 0, 0, 0, 0), "fixture")},
+    )
+    # Native robot poses rotate about successive axes: Rx(90) @ Rz(90)
+    # sends fixture X along world Z, unlike the shape-pose convention.
+    assert turned.resolve("pick").values[:3] == pytest.approx((100, 200, 310))
+    assert turned.relative_pose(turned.resolve("pick"), "fixture").values[
+        :3
+    ] == pytest.approx((10, 0, 0))
+
     for pitch in (-90, -89.99, 25, 89.99, 90):
         original = Pose((1, 2, 3, 37, pitch, -28))
         assert Pose.from_matrix(original.matrix()).matrix() == pytest.approx(
