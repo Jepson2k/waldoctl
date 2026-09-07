@@ -11,6 +11,7 @@ import pytest
 from waldoctl.client import RobotClient
 from waldoctl.skills import (
     MissingCapability,
+    IncompatibleSkill,
     discover_skills,
     observe_skills,
     report_progress,
@@ -22,6 +23,11 @@ from waldoctl.skills import (
 async def double(client: RobotClient, value: int) -> int:
     report_progress("Doubling", fraction=0.5)
     return 2 * value
+
+
+@skill(id="test.future", version="1.0.0", api_version=2)
+async def future_skill(client: RobotClient) -> None:
+    pytest.fail("An incompatible runtime must refuse before invoking the body")
 
 
 def test_nested_functions_keep_arguments_results_events_and_context():
@@ -80,9 +86,21 @@ def test_capability_failure_and_plugin_conflicts_do_not_execute_or_hide_other_sk
         ep("good", f"{__name__}:double"),
         ep("broken", "nonexistent_skill_plugin:skill"),
         ep("invalid", "builtins:sum"),
+        ep("future", f"{__name__}:future_skill"),
     ]
     monkeypatch.setattr("waldoctl.skills.entry_points", lambda **kwargs: points)
-    assert asyncio.run(discover_skills()["test.double"].async_call(client, 3)) == 6
+    diagnostics = []
+    assert (
+        asyncio.run(
+            discover_skills(diagnostics=diagnostics)["test.double"].async_call(
+                client, 3
+            )
+        )
+        == 6
+    )
+    assert any("requires skill API 2" in message for message in diagnostics)
+    with pytest.raises(IncompatibleSkill, match="requires skill API 2"):
+        asyncio.run(future_skill.async_call(client))
     points.append(ep("conflict", f"{__name__}:double"))
     assert "test.double" not in discover_skills()
     assert "all providers excluded" in caplog.text
