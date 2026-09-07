@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from waldoctl.shapes import Shape, ShapeWorld
+from waldoctl.execution import ExecutionSpeed
 from waldoctl.status import (
     ActivityResult,
     Inertia6,
@@ -359,6 +360,64 @@ class RobotClient(ABC):
         timeout: float = 30.0,
     ) -> bool:
         """Block until a checkpoint with *label* is reached."""
+        raise NotImplementedError
+
+    async def set_execution_speed(self, scale: float, *, timeout: float = 3.0) -> int:
+        """Request controller-owned timing for queued trajectories.
+
+        Scale is 0.1–1.0 relative to the original plan. Changing it retains
+        the paused state; use ``pause`` and ``resume`` explicitly. Return 1
+        after the controller confirms the selected speed, 0 if unconfirmed;
+        active rejection may raise. Read ``execution_speed`` for the applied
+        value while a bounded transition is in progress. Jog and external
+        servo streams retain their own timing.
+
+        Category: Control
+
+        Example:
+            rbt.set_execution_speed(0.5)
+        """
+        raise NotImplementedError
+
+    async def pause(self, *, timeout: float = 3.0) -> int:
+        """Request a controlled hold of queued motion, retaining its progress.
+
+        Return 1 after the controller confirms the pause request, 0 if
+        unconfirmed; active rejection may raise. ``execution_speed().paused``
+        reports when deceleration has reached a hold. This does not suspend
+        Python execution or extend standalone command-completion timeouts.
+
+        Category: Control
+
+        Example:
+            rbt.pause()
+        """
+        raise NotImplementedError
+
+    async def resume(self, *, timeout: float = 3.0) -> int:
+        """Resume the retained queue at the selected execution speed.
+
+        Return 1 after the controller confirms the resume request, 0 if
+        unconfirmed; active rejection may raise. This does not restart a
+        cancelled command or clear a fault.
+
+        Category: Control
+
+        Example:
+            rbt.resume()
+        """
+        raise NotImplementedError
+
+    async def execution_speed(self, *, timeout: float = 3.0) -> ExecutionSpeed:
+        """Read the controller's target and applied trajectory speed scales.
+
+        Raise on missing or invalid readback; do not substitute cached values.
+
+        Category: Query
+
+        Example:
+            rbt.execution_speed()
+        """
         raise NotImplementedError
 
     @abstractmethod

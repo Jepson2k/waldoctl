@@ -17,6 +17,7 @@ from waldoctl.discovery import (
     load_tool_spec_class,
 )
 from waldoctl.errors import RobotError
+from waldoctl.execution import ExecutionSpeed
 from waldoctl.dry_run import DryRunClient
 from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
@@ -200,6 +201,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "ExecutionSpeed",
     # Robot + Client ABCs / Protocols
     "Robot",
     "RobotClient",
