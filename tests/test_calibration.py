@@ -81,19 +81,6 @@ def test_pivot_calibration_and_separate_orientation_teaching():
     assert not edited.without("tcp_calibrations", "probe").tcp_calibrations
     assert loaded.tcp_calibrations["probe"].matrix() == pytest.approx(calibrated)
 
-    legacy = {
-        "version": 1,
-        "frames": {},
-        "poses": {"park": {"values": [1, 2, 3, 0, 0, 0], "frame": "WRF"}},
-        "parameters": {},
-    }
-    migrated = SetupSnapshot.from_dict(legacy).with_tcp_calibration("probe", saved)
-    assert SetupSnapshot.from_dict(migrated.to_dict()).resolve("park").values[:3] == (
-        1,
-        2,
-        3,
-    )
-
     for field, value in (
         ("values", [0, 0, float("nan"), 0, 0, 0]),
         ("values", [0, 0, 0]),

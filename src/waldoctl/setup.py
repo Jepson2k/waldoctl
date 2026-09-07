@@ -282,7 +282,7 @@ class SetupSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "version": 2,
+            "version": 1,
             "frames": {
                 k: {"values": list(v.values), "parent": v.parent}
                 for k, v in self.frames.items()
@@ -306,12 +306,10 @@ class SetupSnapshot:
         if (
             not isinstance(document, dict)
             or type(document.get("version")) is not int
-            or document["version"] not in {1, 2}
+            or document["version"] != 1
         ):
-            raise ValueError("Unsupported setup snapshot version (expected 1 or 2)")
-        fields = {"version", "frames", "poses", "parameters"}
-        if document["version"] == 2:
-            fields.add("tcp_calibrations")
+            raise ValueError("Unsupported setup snapshot version (expected 1)")
+        fields = {"version", "frames", "poses", "parameters", "tcp_calibrations"}
         if set(document) != fields:
             raise ValueError(f"Setup snapshot must contain {', '.join(sorted(fields))}")
         try:
@@ -323,7 +321,7 @@ class SetupSnapshot:
                 },
                 tcp_calibrations={
                     k: TcpCalibration(**v)
-                    for k, v in document.get("tcp_calibrations", {}).items()
+                    for k, v in document["tcp_calibrations"].items()
                 },
             )
         except (TypeError, AttributeError, KeyError) as error:

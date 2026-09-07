@@ -64,8 +64,8 @@ angles from a nominal tool pose and explicit WRF reference axes. Neither helper
 acquires observations or sends robot commands.
 
 `SetupSnapshot.tcp_calibrations` stores named `TcpCalibration` values, tool/variant
-bindings and measurement provenance. The version-2 setup codec reads version-1
-files with no calibrations; snapshots and exports retain their fixed values.
+bindings and measurement provenance. The setup codec validates one versioned
+schema; snapshots and exports retain their fixed values.
 
 Backends advertising `Robot.has_tcp_transform` implement `set_tcp_transform`
 and `tcp_transform`: six values in millimetres and intrinsic XYZ degrees,
