@@ -30,6 +30,7 @@ from typing import (
 from uuid import uuid4
 
 from waldoctl.client import RobotClient
+from waldoctl.record_values import snapshot_arguments, snapshot_value
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -81,6 +82,9 @@ class SkillEvent:
     message: str = ""
     fraction: float | None = None
     stop_confirmed: bool | None = None
+    values_captured: bool = False
+    arguments: Any = None
+    result: Any = None
 
 
 class SkillError(RuntimeError):
@@ -152,10 +156,26 @@ class _Invocation:
     parent_id: str | None
     id: str = field(default_factory=lambda: uuid4().hex)
 
-    def emit(self, phase: SkillPhase, **kwargs: Any) -> None:
-        event = SkillEvent(self.id, self.parent_id, self.spec, phase, **kwargs)
-        for observer in _observers.get():
+    def emit(
+        self,
+        phase: SkillPhase,
+        *,
+        arguments: Any = None,
+        result: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        for observer, capture in _observers.get():
             try:
+                event = SkillEvent(
+                    self.id,
+                    self.parent_id,
+                    self.spec,
+                    phase,
+                    values_captured=capture,
+                    arguments=snapshot_value(arguments) if capture else None,
+                    result=snapshot_value(result) if capture else None,
+                    **kwargs,
+                )
                 observer(event)
             except Exception:
                 # A logging/UI extension must not interrupt a motion sequence.
@@ -163,20 +183,23 @@ class _Invocation:
 
 
 _active: ContextVar[_Invocation | None] = ContextVar("waldoctl_skill", default=None)
-_observers: ContextVar[tuple[Callable[[SkillEvent], None], ...]] = ContextVar(
-    "waldoctl_skill_observers", default=()
+_observers: ContextVar[tuple[tuple[Callable[[SkillEvent], None], bool], ...]] = (
+    ContextVar("waldoctl_skill_observers", default=())
 )
 
 
 @contextmanager
-def observe_skills(observer: Callable[[SkillEvent], None]) -> Iterator[None]:
+def observe_skills(
+    observer: Callable[[SkillEvent], None], *, capture_values: bool = False
+) -> Iterator[None]:
     """Observe invocations in this execution context, including nested skills.
 
     Callbacks run on the client's execution thread. UI consumers must marshal
-    events to their own loop. Events omit arguments/results to avoid implicitly
-    recording personal data. Observer failures are logged and isolated.
+    events to their own loop. Arguments/results require explicit opt-in and are
+    bounded, detached snapshots, excluding the supplied client. They may contain
+    personal data. Observer failures are logged and isolated.
     """
-    token = _observers.set((*_observers.get(), observer))
+    token = _observers.set((*_observers.get(), (observer, capture_values)))
     try:
         yield
     finally:
@@ -192,6 +215,12 @@ def report_progress(message: str, *, fraction: float | None = None) -> None:
     if fraction is not None and not 0 <= fraction <= 1:
         raise ValueError("Progress fraction must be finite and between 0 and 1")
     invocation.emit("progress", message=message, fraction=fraction)
+
+
+def current_skill_invocation() -> str | None:
+    """Correlation id for command observers inside an executing skill."""
+    invocation = _active.get()
+    return invocation.id if invocation is not None else None
 
 
 class _Guard:
@@ -270,7 +299,13 @@ class Skill(Generic[ClientT, P, R]):
         root = not isinstance(client, _Guard)
         invocation = _Invocation(self.spec, execution, parent.id if parent else None)
         token = _active.set(invocation)
-        invocation.emit("started")
+        capture = any(enabled for _, enabled in _observers.get())
+        arguments = (
+            snapshot_arguments(self.function, (client, *args), kwargs, omit_first=True)
+            if capture
+            else None
+        )
+        invocation.emit("started", arguments=arguments)
         try:
             execution.check()
             _check_api(self.spec)
@@ -282,7 +317,7 @@ class Skill(Generic[ClientT, P, R]):
             guarded = cast(ClientT, _Guard(client, execution)) if root else client
             result = await self.function(guarded, *args, **kwargs)
             execution.check()
-            invocation.emit("completed")
+            invocation.emit("completed", result=result if capture else None)
             return result
         except asyncio.CancelledError:
             await execution.stop()
