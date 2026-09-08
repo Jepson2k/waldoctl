@@ -44,6 +44,7 @@ A `ToolSpec` describes an end-of-arm tool: TCP offset, 3D mesh descriptors for v
 | `tools` | Tool hierarchy, mesh/motion descriptors, enums, `ToolStatus` |
 | `joints` | Frozen dataclasses for joint configuration and limits |
 | `status` | `StatusBuffer` protocol for real-time state, query result types |
+| `recordings` | Immutable joint/tool observations, capture termination reasons and explicit gap/span inspection |
 | `results` | `IKResult` and `DryRunResult` protocols with concrete dataclasses; `ObjectTrack` |
 | `shapes` | `Shape` kinds, `Physical`, `ShapeWorld`, the wire form and the reporting vocabulary |
 | `world` | JSON codec for a `ShapeWorld` -- saved worlds, library entries, import/export |
