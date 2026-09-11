@@ -1,5 +1,7 @@
 """Static frame composition and reusable snapshots, independent of a backend."""
 
+from types import MappingProxyType
+
 import numpy as np
 import pytest
 
@@ -80,3 +82,12 @@ def test_invalid_setup_never_resolves_into_a_motion_target():
     document["version"] = 2
     with pytest.raises(ValueError, match="version"):
         SetupSnapshot.from_dict(document)
+    # A mistyped pose name is a missing reference like any other, so a caller
+    # catching ValueError catches it.
+    with pytest.raises(ValueError, match="Unknown pose 'pikc'"):
+        setup.resolve("pikc")
+    # Any mapping decodes: a read-only view of a valid document is not an
+    # unsupported version.
+    assert SetupSnapshot.from_dict(MappingProxyType(setup.to_dict())).resolve(
+        "pick"
+    ).values == pytest.approx(setup.resolve("pick").values)
