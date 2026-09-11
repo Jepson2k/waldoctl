@@ -22,6 +22,8 @@ Async control interface spanning motion (`moveJ`, `moveL`, `home`), streaming po
 
 Core operations are `@abstractmethod`; advanced features like circular moves or freedrive have defaults that raise `NotImplementedError`, so backends only implement what their hardware supports.
 
+Every method carries a `@command(kind)` marker and `command_table()` reads them back: `MOTION` and `QUEUED` calls enter the controller's queue and return an index a program may `wait_command`; `SYSTEM` calls apply at once and return `1`/`0`/negative; `CONTROL` acts on the queue (`stop` and `estop` cancel it); `QUERY` reads state a plan knows; `OBSERVATION` reads live state only a running controller can answer; `SYNC` waits. A program runs unchanged against a live client or a preview because every wrapper that stands in for a client, the stepping wrapper, the path preview, a backend's dry run, reads its behaviour for a call from this table instead of its own list, and the conformance test refuses an unclassified method.
+
 ### `DryRunClient`
 
 A lightweight shortcut for quick TCP path visualization and basic path verification. Unlike the full simulation mode available on the regular async/sync clients (which ticks the entire controller loop), the dry-run client just runs the motion planner and returns the resulting TCP trajectories and joint paths directly -- fast enough for interactive preview without standing up a full simulated robot.
