@@ -233,8 +233,11 @@ class SetupSnapshot:
                 if not isinstance(value, kind):
                     raise ValueError(f"{label}/{name} requires {kind.__name__}")
             object.__setattr__(self, label, MappingProxyType(entries))
-        if {"WRF", "TRF"} & self.frames.keys():
-            raise ValueError("WRF and TRF are reserved native frame names")
+        if {"WRF", "TRF", "TCP"} & self.frames.keys():
+            # TCP is the tool-camera pose frame: a static frame of that name
+            # would silently turn every camera→TCP pose into a world pose
+            # resolved through it.
+            raise ValueError("WRF, TRF and TCP are reserved frame names")
         for name in self.frames:
             self.frame_matrix(name)
         for pose in self.poses.values():
