@@ -51,6 +51,10 @@ class StatusBuffer(Protocol):
     """Index of the command currently being executed (-1 if idle)."""
     completed_index: int
     """Index of the last completed command (-1 if none)."""
+    queued_duration: float
+    """Seconds of planned motion the controller still has to play: the
+    active command's remainder plus everything queued behind it. A managed
+    wait sizes its patience from this instead of a fixed deadline."""
     last_checkpoint: str
     """Label of the last checkpoint reached (empty if none)."""
     tcp_speed: float
