@@ -177,7 +177,8 @@ class TcpCalibration:
         ):
             raise ValueError("Position sample count requires a measured residual")
         if self.position_rms_mm is not None and (
-            not isinstance(self.position_rms_mm, (int, float))
+            isinstance(self.position_rms_mm, bool)
+            or not isinstance(self.position_rms_mm, (int, float))
             or not math.isfinite(self.position_rms_mm)
             or self.position_rms_mm < 0
             or self.position_samples < 4
