@@ -135,3 +135,61 @@ def test_opt_in_records_bound_arguments_and_results_without_capturing_client():
     assert all(event.arguments is None and event.result is None for event in ordinary)
     result.positions.clear()
     assert detailed[-1].result["positions"] == [2.0, 4.0, 12.0]
+
+
+def test_skill_timeouts_are_not_cancellation_but_task_cancel_is():
+    stops: list[bool] = []
+
+    class Client:
+        skill_capabilities = frozenset()
+
+        async def wait_command(self, index: int, timeout: float | None = None):
+            await asyncio.sleep(60)
+
+        async def angles(self) -> list[float]:
+            return [0.0] * 6
+
+        async def stop(self) -> int:
+            stops.append(True)
+            return 1
+
+    client = cast(RobotClient, Client())
+
+    @skill(id="test.child", version="1.0.0")
+    async def child(rbt: RobotClient) -> bool:
+        return await rbt.wait_command(1)
+
+    @skill(id="test.timeouts", version="1.0.0")
+    async def timeouts(rbt: RobotClient) -> list[float]:
+        # A skill's own deadlines around a supplied-client call and around a
+        # nested skill are ordinary control flow, not an invocation cancel.
+        try:
+            await asyncio.wait_for(rbt.wait_command(1), 0.01)
+        except TimeoutError:
+            pass
+        try:
+            async with asyncio.timeout(0.01):
+                await child.async_call(rbt)
+        except TimeoutError:
+            pass
+        return await rbt.angles()
+
+    events = []
+
+    async def run() -> None:
+        with observe_skills(events.append):
+            assert await timeouts.async_call(client) == [0.0] * 6
+            assert stops == [], "a timeout inside the skill must not stop the arm"
+            task = asyncio.create_task(child.async_call(client))
+            await asyncio.sleep(0.01)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    asyncio.run(run())
+    assert stops == [True], "cancelling the invocation stops the arm exactly once"
+    phases = [(e.skill.id, e.phase) for e in events]
+    assert ("test.timeouts", "completed") in phases
+    assert ("test.child", "cancelled") in phases
+    assert phases[-1] == ("test.child", "cancelled")
+    assert events[-1].stop_confirmed is True

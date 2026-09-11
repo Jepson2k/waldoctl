@@ -386,6 +386,9 @@ class RobotClient(ABC):
         unconfirmed; active rejection may raise. ``execution_speed().paused``
         reports when deceleration has reached a hold. This does not suspend
         Python execution or extend standalone command-completion timeouts.
+        The hold is scoped to the motion it interrupted: ``stop()``,
+        ``estop()`` and ``reset_state()`` clear it, so the next queued
+        command runs at the selected execution speed.
 
         Category: Control
 
@@ -425,7 +428,8 @@ class RobotClient(ABC):
         """Stop all motion — cancel the active move and clear the queue.
 
         The controller stays enabled and holding position; the next motion
-        command is accepted immediately.
+        command is accepted immediately and a standing ``pause()`` is
+        cleared with the queue it was holding.
 
         Category: Control
 
@@ -980,7 +984,7 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     async def reset_state(self) -> int:
-        """Reset controller state (world shapes, tool selection, errors).
+        """Reset controller state (world shapes, tool selection, errors, pause).
 
         Category: Control
 

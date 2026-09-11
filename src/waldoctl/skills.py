@@ -245,11 +245,7 @@ class _Guard:
             # operation synchronously, so cancellation has a boundary to land.
             await asyncio.sleep(0)
             self._execution.check()
-            try:
-                result = await attr(*args, **kwargs)
-            except asyncio.CancelledError:
-                await self._execution.stop()
-                raise
+            result = await attr(*args, **kwargs)
             self._execution.check()
             return result
 
@@ -320,7 +316,11 @@ class Skill(Generic[ClientT, P, R]):
             invocation.emit("completed", result=result if capture else None)
             return result
         except asyncio.CancelledError:
-            await execution.stop()
+            # Only the root invocation owns the arm: a CancelledError leaving a
+            # nested skill may be an enclosing asyncio.timeout() in the parent,
+            # which converts it to TimeoutError and carries on.
+            if root:
+                await execution.stop()
             invocation.emit("cancelled", stop_confirmed=execution.stop_confirmed)
             raise
         except Exception as error:
