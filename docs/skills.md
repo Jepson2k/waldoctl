@@ -70,9 +70,13 @@ GUI consumers must marshal events appropriately. Callback errors are logged and
 isolated. Arguments and results are not recorded automatically.
 
 Cancelling an async invocation keeps cancellation sticky at subsequent supplied
-client/tool coroutine calls, including nested skills. The runtime requests the
-backend's existing stop with a two-second deadline and reports whether it was
-confirmed; an unconfirmed stop does not mean the arm stopped. Keep all motion
+client/tool coroutine calls, including nested skills. When the cancellation
+leaves the root invocation, the runtime requests the backend's existing stop
+with a two-second deadline and reports whether it was confirmed; an unconfirmed
+stop does not mean the arm stopped. A skill's own `asyncio.timeout()` /
+`asyncio.wait_for()` around supplied-client calls or nested skills is not a
+cancellation: it raises `TimeoutError` inside the skill and the arm is not
+stopped. Keep all motion
 inside the supplied client and await child work. A saved client guard becomes
 unusable after its invocation ends. Python cancellation is cooperative: this
 cannot interrupt CPU-bound code, revoke independently created clients, or retain
