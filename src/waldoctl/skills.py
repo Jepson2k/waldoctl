@@ -68,6 +68,13 @@ class SkillSpec:
             )
         if not re.fullmatch(r"\d+\.\d+\.\d+", self.version):
             raise ValueError("Skill version must have major.minor.patch form")
+        if isinstance(self.requires, str):
+            # `requires="motion"` would become a frozenset of its letters, and
+            # every letter is a valid identifier, so the skill would register
+            # and then demand capabilities named m, o, t, i and n.
+            raise ValueError(
+                "Capabilities must be a collection of identifiers, not one string"
+            )
         object.__setattr__(self, "requires", frozenset(self.requires))
         if any(not re.fullmatch(r"[a-z][a-z0-9_.-]*", key) for key in self.requires):
             raise ValueError("Capabilities must be nonempty lowercase identifiers")
