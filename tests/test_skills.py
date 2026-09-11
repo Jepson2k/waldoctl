@@ -72,6 +72,15 @@ def test_capability_failure_and_plugin_conflicts_do_not_execute_or_hide_other_sk
         asyncio.run(contact.async_call(client))
     assert [e.phase for e in events] == ["started", "failed"]
 
+    # One capability written as a bare string is refused at declaration. Split
+    # into letters it would register and then demand five one-letter
+    # capabilities of every client that ran it.
+    with pytest.raises(ValueError, match="not one string"):
+
+        @skill(id="test.typo", version="1.0.0", requires="motion.contact")
+        async def typo(client: RobotClient) -> None:
+            pytest.fail("A skill with a mistyped capability set must not register")
+
     # EntryPoint.load performs real Python imports, including a broken provider.
     def ep(name, value):
         return EntryPoint(name=name, value=value, group="waldoctl.skills")

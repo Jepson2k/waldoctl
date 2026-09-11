@@ -4,6 +4,7 @@ from importlib.metadata import version as _get_version
 
 from waldoctl._commander import Commander
 from waldoctl.client import RobotClient
+from waldoctl.commands import CommandKind, CommandSpec, command, command_table
 from waldoctl.discovery import (
     available_backends,
     iter_plugin_panels,
@@ -204,6 +205,11 @@ __all__ = [
     "Robot",
     "RobotClient",
     "DryRunClient",
+    # Command table
+    "CommandKind",
+    "CommandSpec",
+    "command",
+    "command_table",
     # Joints (frozen dataclasses)
     "PositionLimits",
     "KinodynamicLimits",
