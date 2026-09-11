@@ -383,6 +383,7 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     @command(CommandKind.CONTROL, cancels=True)
+    @command(CommandKind.CONTROL)
     async def set_execution_speed(self, scale: float, *, timeout: float = 3.0) -> int:
         """Request controller-owned timing for queued trajectories.
 
@@ -400,6 +401,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.CONTROL)
     async def pause(self, *, timeout: float = 3.0) -> int:
         """Request a controlled hold of queued motion, retaining its progress.
 
@@ -418,6 +420,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.CONTROL)
     async def resume(self, *, timeout: float = 3.0) -> int:
         """Resume the retained queue at the selected execution speed.
 
@@ -432,6 +435,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def execution_speed(self, *, timeout: float = 3.0) -> ExecutionSpeed:
         """Read the controller's target and applied trajectory speed scales.
 
@@ -444,6 +448,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.CONTROL, cancels=True)
     @abstractmethod
     async def stop(self) -> int:
         """Stop all motion — cancel the active move and clear the queue.
