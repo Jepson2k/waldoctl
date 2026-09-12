@@ -382,7 +382,6 @@ class RobotClient(ABC):
         """Block until a checkpoint with *label* is reached."""
         raise NotImplementedError
 
-    @command(CommandKind.CONTROL, cancels=True)
     @command(CommandKind.CONTROL)
     async def set_execution_speed(self, scale: float, *, timeout: float = 3.0) -> int:
         """Request controller-owned timing for queued trajectories.
