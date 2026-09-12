@@ -179,7 +179,8 @@ class TcpCalibration:
         ):
             raise ValueError("Position sample count requires a measured residual")
         if self.position_rms_mm is not None and (
-            not isinstance(self.position_rms_mm, (int, float))
+            isinstance(self.position_rms_mm, bool)
+            or not isinstance(self.position_rms_mm, (int, float))
             or not math.isfinite(self.position_rms_mm)
             or self.position_rms_mm < 0
             or self.position_samples < 4
@@ -250,6 +251,12 @@ class SetupSnapshot:
     def resolve(self, pose: str | Pose) -> Pose:
         """Resolve a named or explicit pose into a numeric WRF snapshot."""
         if isinstance(pose, str):
+            if pose not in self.poses:
+                # Every missing reference in this module is a ValueError; a
+                # caller following that contract would not catch a KeyError,
+                # and a bare KeyError names the pose without saying what about
+                # it was wrong.
+                raise ValueError(f"Unknown pose {pose!r}")
             pose = self.poses[pose]
         return Pose.from_matrix(self.frame_matrix(pose.frame) @ pose.matrix())
 
@@ -314,7 +321,7 @@ class SetupSnapshot:
     def from_dict(cls, document: Mapping[str, Any]) -> SetupSnapshot:
         """Decode a versioned snapshot, refusing unknown fields or references."""
         if (
-            not isinstance(document, dict)
+            not isinstance(document, Mapping)
             or type(document.get("version")) is not int
             or document["version"] != 1
         ):
