@@ -33,6 +33,7 @@ from waldoctl.dry_run_state import (
 from waldoctl.panels import Panel, PanelSlot
 from waldoctl.scene import SceneHandle
 from waldoctl.shapes import (
+    Attachment,
     Physical,
     display_name,
     param_names,
@@ -281,6 +282,7 @@ __all__ = [
     "PanelSlot",
     "SceneHandle",
     # Workspace shapes (collision world)
+    "Attachment",
     "Physical",
     "Shape",
     "display_name",
