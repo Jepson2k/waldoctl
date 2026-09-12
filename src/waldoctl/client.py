@@ -758,6 +758,10 @@ class RobotClient(ABC):
 
         The offset shifts the effective TCP point in the tool's local frame.
         Subsequent motion (especially TRF relative moves) will use the new TCP.
+        This translation-only API clears any user TCP rotation. Use
+        ``set_tcp_transform`` to apply translation and orientation together.
+        Returns the queued command index; ``wait_command(index)`` confirms
+        application before a subsequent readback.
         Call with (0, 0, 0) to reset. Changing tools resets the offset.
 
         Category: Configuration
@@ -783,6 +787,51 @@ class RobotClient(ABC):
 
         Example:
             offset = rbt.tcp_offset()
+        """
+        raise NotImplementedError
+
+    @command(CommandKind.QUEUED)
+    async def set_tcp_transform(
+        self,
+        x: float = 0,
+        y: float = 0,
+        z: float = 0,
+        roll: float = 0,
+        pitch: float = 0,
+        yaw: float = 0,
+    ) -> int:
+        """Set the user TCP transform relative to the registered tool.
+
+        Translation is in mm; rotation is intrinsic XYZ degrees, composed
+        as ``T_registered_tool @ T_user``. Changing the tool or its variant
+        clears the user transform. The registered collision meshes remain
+        attached to their physical links.
+
+        This queued configuration applies before following motion. Await
+        ``wait_command(index)`` before treating it as applied; readback
+        reports the applied transform. A rejected or cancelled command
+        must not change it.
+
+        Category: Configuration
+
+        Example:
+            index = rbt.set_tcp_transform(0, 0, 25, 0, 90, 0)
+            rbt.wait_command(index)
+        """
+        raise NotImplementedError
+
+    @command(CommandKind.QUERY)
+    async def tcp_transform(self) -> list[float]:
+        """Read the applied user TCP transform as mm and intrinsic XYZ degrees.
+
+        Returns exactly ``[x, y, z, roll, pitch, yaw]`` relative to the
+        registered tool. Raises when no valid controller reply is received;
+        an unavailable result must never be replaced with an identity transform.
+
+        Category: Configuration
+
+        Example:
+            transform = rbt.tcp_transform()
         """
         raise NotImplementedError
 

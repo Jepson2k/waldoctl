@@ -79,7 +79,7 @@ def test_invalid_setup_never_resolves_into_a_motion_target():
         with pytest.raises(ValueError, match="proper rotation"):
             Pose.from_matrix(transform)
     document = setup.to_dict()
-    document["version"] = 2
+    document["version"] = 999
     with pytest.raises(ValueError, match="version"):
         SetupSnapshot.from_dict(document)
     # A mistyped pose name is a missing reference like any other, so a caller

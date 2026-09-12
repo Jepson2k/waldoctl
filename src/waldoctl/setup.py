@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any, cast
 
@@ -145,16 +145,77 @@ class Parameter:
 
 
 @dataclass(frozen=True)
+class TcpCalibration:
+    """Explicit user TCP transform and its measured or taught provenance.
+
+    Values use mm and intrinsic XYZ degrees relative to the registered
+    tool. An absent position residual or orientation reference means that
+    component was entered directly rather than measured or taught.
+    """
+
+    values: PoseValues
+    tool_key: str
+    variant_key: str = ""
+    position_rms_mm: float | None = None
+    position_samples: int = 0
+    orientation_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "values", _values(self.values))
+        if (
+            not isinstance(self.tool_key, str)
+            or not self.tool_key
+            or len(self.tool_key) > 128
+        ):
+            raise ValueError("TCP calibration requires a tool key of 1–128 characters")
+        if not isinstance(self.variant_key, str) or len(self.variant_key) > 128:
+            raise ValueError(
+                "TCP calibration variant must be text of at most 128 characters"
+            )
+        if type(self.position_samples) is not int or (
+            self.position_rms_mm is None and self.position_samples != 0
+        ):
+            raise ValueError("Position sample count requires a measured residual")
+        if self.position_rms_mm is not None and (
+            isinstance(self.position_rms_mm, bool)
+            or not isinstance(self.position_rms_mm, (int, float))
+            or not math.isfinite(self.position_rms_mm)
+            or self.position_rms_mm < 0
+            or self.position_samples < 4
+        ):
+            raise ValueError(
+                "Measured TCP position requires a finite residual and at least four samples"
+            )
+        if self.orientation_reference is not None:
+            validate_name(self.orientation_reference)
+
+    def matrix(self) -> NDArray[np.float64]:
+        return _matrix(self.values)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "values": list(self.values),
+            "tool_key": self.tool_key,
+            "variant_key": self.variant_key,
+            "position_rms_mm": self.position_rms_mm,
+            "position_samples": self.position_samples,
+            "orientation_reference": self.orientation_reference,
+        }
+
+
+@dataclass(frozen=True)
 class SetupSnapshot:
     frames: Mapping[str, Frame] = field(default_factory=dict)
     poses: Mapping[str, Pose] = field(default_factory=dict)
     parameters: Mapping[str, Parameter] = field(default_factory=dict)
+    tcp_calibrations: Mapping[str, TcpCalibration] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for label, kind in (
             ("frames", Frame),
             ("poses", Pose),
             ("parameters", Parameter),
+            ("tcp_calibrations", TcpCalibration),
         ):
             entries = dict(getattr(self, label))
             for name, value in entries.items():
@@ -204,19 +265,24 @@ class SetupSnapshot:
         )
 
     def with_frame(self, name: str, frame: Frame) -> SetupSnapshot:
-        return SetupSnapshot({**self.frames, name: frame}, self.poses, self.parameters)
+        return replace(self, frames={**self.frames, name: frame})
 
     def with_pose(self, name: str, pose: Pose) -> SetupSnapshot:
-        return SetupSnapshot(self.frames, {**self.poses, name: pose}, self.parameters)
+        return replace(self, poses={**self.poses, name: pose})
 
     def with_parameter(self, name: str, parameter: Parameter) -> SetupSnapshot:
-        return SetupSnapshot(
-            self.frames, self.poses, {**self.parameters, name: parameter}
+        return replace(self, parameters={**self.parameters, name: parameter})
+
+    def with_tcp_calibration(
+        self, name: str, calibration: TcpCalibration
+    ) -> SetupSnapshot:
+        return replace(
+            self, tcp_calibrations={**self.tcp_calibrations, name: calibration}
         )
 
     def without(self, kind: str, name: str) -> SetupSnapshot:
-        if kind not in {"frames", "poses", "parameters"}:
-            raise ValueError("Expected frames, poses or parameters")
+        if kind not in {"frames", "poses", "parameters", "tcp_calibrations"}:
+            raise ValueError("Expected frames, poses, parameters or tcp_calibrations")
         document = self.to_dict()
         del document[kind][name]
         return self.from_dict(document)
@@ -236,6 +302,9 @@ class SetupSnapshot:
                 k: {"value": v.value, "unit": v.unit}
                 for k, v in self.parameters.items()
             },
+            "tcp_calibrations": {
+                k: v.to_dict() for k, v in self.tcp_calibrations.items()
+            },
         }
 
     @classmethod
@@ -247,16 +316,19 @@ class SetupSnapshot:
             or document["version"] != 1
         ):
             raise ValueError("Unsupported setup snapshot version (expected 1)")
-        if set(document) != {"version", "frames", "poses", "parameters"}:
-            raise ValueError(
-                "Setup snapshot must contain version, frames, poses and parameters"
-            )
+        fields = {"version", "frames", "poses", "parameters", "tcp_calibrations"}
+        if set(document) != fields:
+            raise ValueError(f"Setup snapshot must contain {', '.join(sorted(fields))}")
         try:
             return cls(
                 frames={k: Frame(**v) for k, v in document["frames"].items()},
                 poses={k: Pose(**v) for k, v in document["poses"].items()},
                 parameters={
                     k: Parameter(**v) for k, v in document["parameters"].items()
+                },
+                tcp_calibrations={
+                    k: TcpCalibration(**v)
+                    for k, v in document["tcp_calibrations"].items()
                 },
             )
         except (TypeError, AttributeError, KeyError) as error:
