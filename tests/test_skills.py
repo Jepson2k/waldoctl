@@ -2,6 +2,7 @@
 
 import asyncio
 import inspect
+from dataclasses import dataclass
 from importlib.metadata import EntryPoint
 from types import SimpleNamespace
 from typing import cast
@@ -114,6 +115,35 @@ def test_capability_failure_and_plugin_conflicts_do_not_execute_or_hide_other_sk
     assert "test.double" not in discover_skills()
     assert "all providers excluded" in caplog.text
     assert "Cannot load skill plugin broken" in caplog.text
+
+
+def test_opt_in_records_bound_arguments_and_results_without_capturing_client():
+    @dataclass
+    class Outcome:
+        positions: list[float]
+        token: str
+
+    @skill(id="test.measure", version="1.0.0")
+    async def measure(client: RobotClient, positions: list[float], *, scale=2.0):
+        positions.append(await double.async_call(client, 3))
+        return Outcome([p * scale for p in positions], "private-token")
+
+    client = cast(RobotClient, SimpleNamespace(skill_capabilities=frozenset()))
+    positions = [1.0, 2.0]
+    detailed, ordinary = [], []
+    with (
+        observe_skills(detailed.append, capture_values=True),
+        observe_skills(ordinary.append),
+    ):
+        result = asyncio.run(measure.async_call(client, positions))
+    assert result.positions == [2.0, 4.0, 12.0]
+    assert detailed[0].arguments == {"positions": [1.0, 2.0], "scale": 2.0}
+    assert detailed[-1].result == {"positions": [2.0, 4.0, 12.0], "token": "<redacted>"}
+    assert detailed[1].arguments == {"value": 3}
+    assert all(not event.values_captured for event in ordinary)
+    assert all(event.arguments is None and event.result is None for event in ordinary)
+    result.positions.clear()
+    assert detailed[-1].result["positions"] == [2.0, 4.0, 12.0]
 
 
 def test_skill_timeouts_are_not_cancellation_but_task_cancel_is():
