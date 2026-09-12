@@ -93,3 +93,15 @@ omitted. Backends implementing this contract advertise `io.digital`; preview
 clients additionally advertise `execution.preview`. `SignalObservation` and
 `SignalWaitResult` carry logical levels, host receipt timestamps, and distinct
 matched/timeout outcomes. The I/O skills live in `waldo_commander.skills`.
+
+`SetupSnapshot.cameras` stores `CameraCalibration` values from `waldoctl.camera`,
+with immutable pinhole intrinsics, measurement quality and provenance. A tool
+camera binds its camera→TCP pose to the backend, tool variant and full TCP
+transform. A fixed camera binds its pose to a named static frame and a snapshot
+of that frame's WRF transform. `validate` checks current acquisition and setup
+bindings; `world_pose` additionally resolves the camera to WRF, using an explicit
+observed TCP pose for tool cameras. Both reject changed relevant bindings.
+These helpers perform no capture, storage or robot I/O. Acquisition must supply
+fresh observations and account for physical camera/lens/mount changes that
+software cannot detect. Camera data is included in explicit setup snapshot
+serialization and export.
