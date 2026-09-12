@@ -8,6 +8,7 @@ from typing import Any
 
 from waldoctl.commands import CommandKind, command
 from waldoctl.shapes import Shape, ShapeWorld
+from waldoctl.execution import ExecutionSpeed
 from waldoctl.status import (
     ActivityResult,
     Inertia6,
@@ -381,13 +382,79 @@ class RobotClient(ABC):
         """Block until a checkpoint with *label* is reached."""
         raise NotImplementedError
 
+    @command(CommandKind.CONTROL)
+    async def set_execution_speed(self, scale: float, *, timeout: float = 3.0) -> int:
+        """Request controller-owned timing for queued trajectories.
+
+        Scale is 0.1–1.0 relative to the original plan. Changing it retains
+        the paused state; use ``pause`` and ``resume`` explicitly. Return 1
+        after the controller confirms the selected speed, 0 if unconfirmed;
+        active rejection may raise. Read ``execution_speed`` for the applied
+        value while a bounded transition is in progress. Jog and external
+        servo streams retain their own timing.
+
+        Category: Control
+
+        Example:
+            rbt.set_execution_speed(0.5)
+        """
+        raise NotImplementedError
+
+    @command(CommandKind.CONTROL)
+    async def pause(self, *, timeout: float = 3.0) -> int:
+        """Request a controlled hold of queued motion, retaining its progress.
+
+        Return 1 after the controller confirms the pause request, 0 if
+        unconfirmed; active rejection may raise. ``execution_speed().paused``
+        reports when deceleration has reached a hold. This does not suspend
+        Python execution or extend standalone command-completion timeouts.
+        The hold is scoped to the motion it interrupted: ``stop()``,
+        ``estop()`` and ``reset_state()`` clear it, so the next queued
+        command runs at the selected execution speed.
+
+        Category: Control
+
+        Example:
+            rbt.pause()
+        """
+        raise NotImplementedError
+
+    @command(CommandKind.CONTROL)
+    async def resume(self, *, timeout: float = 3.0) -> int:
+        """Resume the retained queue at the selected execution speed.
+
+        Return 1 after the controller confirms the resume request, 0 if
+        unconfirmed; active rejection may raise. This does not restart a
+        cancelled command or clear a fault.
+
+        Category: Control
+
+        Example:
+            rbt.resume()
+        """
+        raise NotImplementedError
+
+    @command(CommandKind.QUERY)
+    async def execution_speed(self, *, timeout: float = 3.0) -> ExecutionSpeed:
+        """Read the controller's target and applied trajectory speed scales.
+
+        Raise on missing or invalid readback; do not substitute cached values.
+
+        Category: Query
+
+        Example:
+            rbt.execution_speed()
+        """
+        raise NotImplementedError
+
     @command(CommandKind.CONTROL, cancels=True)
     @abstractmethod
     async def stop(self) -> int:
         """Stop all motion — cancel the active move and clear the queue.
 
         The controller stays enabled and holding position; the next motion
-        command is accepted immediately.
+        command is accepted immediately and a standing ``pause()`` is
+        cleared with the queue it was holding.
 
         Category: Control
 
@@ -979,7 +1046,7 @@ class RobotClient(ABC):
 
     @command(CommandKind.SYSTEM)
     async def reset_state(self) -> int:
-        """Reset controller state (world shapes, tool selection, errors).
+        """Reset controller state (world shapes, tool selection, errors, pause).
 
         Category: Control
 
