@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+from waldoctl.commands import CommandKind, command
 from waldoctl.shapes import Shape, ShapeWorld
 from waldoctl.status import (
     ActivityResult,
@@ -52,11 +53,23 @@ class RobotClient(ABC):
     Success is ``>= 0`` for queued motion, ``> 0`` for everything else.
     """
 
+    @property
+    def skill_capabilities(self) -> frozenset[str]:
+        """Operations implemented by this client for skill requirement checks.
+
+        These two operations are required by this ABC. Optional features must
+        be advertised by their backend only when implemented. Capability names
+        describe operations, not certification or current robot readiness.
+        """
+        return frozenset({"motion.joint", "motion.linear"})
+
+    @command(CommandKind.SYNC)
     @abstractmethod
     async def close(self) -> None:
         """Release resources and disconnect."""
         ...
 
+    @command(CommandKind.QUERY)
     @abstractmethod
     async def ping(self) -> PingResult | None:
         """Check connectivity.  Returns None if unreachable.
@@ -68,21 +81,25 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.SYNC)
     @abstractmethod
     async def wait_ready(self, timeout: float = 5.0, interval: float = 0.05) -> bool:
         """Block until the robot backend is reachable or *timeout* expires."""
         ...
 
+    @command(CommandKind.OBSERVATION)
     @abstractmethod
     def stream_status(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (yields copies, safe to store)."""
         ...
 
+    @command(CommandKind.OBSERVATION)
     @abstractmethod
     def stream_status_shared(self) -> AsyncIterator[StatusBuffer]:
         """Async iterator of real-time status snapshots (shared buffer, zero-copy)."""
         ...
 
+    @command(CommandKind.MOTION, move_type="joints")
     @abstractmethod
     async def move_j(
         self,
@@ -110,6 +127,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.MOTION, move_type="cartesian")
     @abstractmethod
     async def move_l(
         self,
@@ -135,6 +153,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.QUEUED)
     @abstractmethod
     async def home(
         self, wait: bool = False, calibrate: bool = False, **wait_kwargs: Any
@@ -156,6 +175,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.MOTION, move_type="smooth_arc")
     async def move_c(
         self,
         via: list[float],
@@ -178,6 +198,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.MOTION, move_type="smooth_spline")
     async def move_s(
         self,
         waypoints: list[list[float]],
@@ -198,6 +219,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.MOTION, move_type="cartesian")
     async def move_p(
         self,
         waypoints: list[list[float]],
@@ -218,6 +240,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.MOTION, move_type="jog", mints_index=False)
     @abstractmethod
     async def servo_j(
         self,
@@ -239,6 +262,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.MOTION, move_type="jog", mints_index=False)
     @abstractmethod
     async def servo_l(
         self,
@@ -258,6 +282,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.MOTION, move_type="jog", mints_index=False)
     @abstractmethod
     async def jog_j(
         self,
@@ -281,6 +306,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.MOTION, move_type="jog", mints_index=False)
     @abstractmethod
     async def jog_l(
         self,
@@ -305,6 +331,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.SYNC)
     @abstractmethod
     async def wait_motion(
         self,
@@ -320,6 +347,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.SYNC)
     @abstractmethod
     async def wait_command(
         self,
@@ -335,6 +363,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.OBSERVATION)
     async def wait_status(
         self,
         predicate: Callable[[StatusBuffer], bool],
@@ -343,6 +372,7 @@ class RobotClient(ABC):
         """Block until *predicate* returns True for a status snapshot."""
         raise NotImplementedError
 
+    @command(CommandKind.SYNC)
     async def wait_checkpoint(
         self,
         label: str,
@@ -351,6 +381,7 @@ class RobotClient(ABC):
         """Block until a checkpoint with *label* is reached."""
         raise NotImplementedError
 
+    @command(CommandKind.CONTROL, cancels=True)
     @abstractmethod
     async def stop(self) -> int:
         """Stop all motion — cancel the active move and clear the queue.
@@ -365,6 +396,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.CONTROL, cancels=True)
     @abstractmethod
     async def estop(self) -> int:
         """Protective stop: stop all motion and latch the controller
@@ -377,6 +409,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.SYSTEM)
     @abstractmethod
     async def reset(self) -> int:
         """Clear a latched protective stop, re-enabling motion.
@@ -388,6 +421,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.QUERY)
     async def loop_stats(self) -> LoopStatsResult | None:
         """Control-loop runtime metrics; ``None`` when unreachable.
 
@@ -398,6 +432,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def set_status_rate(self, hz: float) -> int:
         """Set the rate the controller broadcasts status at.
 
@@ -415,6 +450,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def status_rate(self) -> StatusRate | None:
         """Current broadcast rate and the control rate it divides; ``None``
         when unreachable.
@@ -426,6 +462,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def simulator(self, enabled: bool) -> int:
         """Enable or disable simulator mode.
 
@@ -436,6 +473,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def is_simulator(self) -> bool:
         """Query whether simulator mode is active.
 
@@ -446,6 +484,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def teleport(
         self,
         angles_deg: list[float],
@@ -461,6 +500,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def freedrive(self, enabled: bool) -> int:
         """Release the arm for hand guiding, or take it back under control.
 
@@ -477,6 +517,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.OBSERVATION)
     async def is_freedrive(self) -> bool:
         """Whether the arm is back-driveable right now.
 
@@ -493,6 +534,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def set_shapes(self, shapes: list[Shape]) -> int:
         """Replace the program-layer keep-out / marker shapes (the collision world).
 
@@ -525,6 +567,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def shapes(self) -> ShapeWorld | None:
         """The collision world the backend is currently enforcing, by layer.
 
@@ -539,6 +582,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     @abstractmethod
     async def angles(self) -> list[float] | None:
         """Current joint angles in degrees.
@@ -550,6 +594,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.QUERY)
     @abstractmethod
     async def pose(self, frame: Frame = "WRF") -> list[float] | None:
         """Current TCP pose as [x, y, z, rx, ry, rz] in mm and degrees.
@@ -561,6 +606,7 @@ class RobotClient(ABC):
         """
         ...
 
+    @command(CommandKind.QUERY)
     async def joint_speeds(self) -> list[float] | None:
         """Current joint velocities.
 
@@ -571,6 +617,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.OBSERVATION)
     async def io(self) -> list[int] | None:
         """Digital I/O state.
 
@@ -581,6 +628,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.OBSERVATION)
     async def status(self) -> object | None:
         """Aggregate status snapshot.
 
@@ -591,6 +639,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def queue(self) -> list[str] | None:
         """Queued command list.
 
@@ -601,6 +650,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def tools(self) -> ToolResult | None:
         """Current tool and available tools.
 
@@ -611,6 +661,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def activity(self) -> ActivityResult | None:
         """What the robot is currently doing.
 
@@ -624,6 +675,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def reachable(self) -> object | None:
         """Remaining freedom of movement per joint/axis before hitting limits.
 
@@ -634,6 +686,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def error(self) -> object | None:
         """Current error state, or None if no error.
 
@@ -644,6 +697,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def profile(self) -> str | None:
         """Current motion profile name.
 
@@ -654,6 +708,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def tcp_speed(self) -> float | None:
         """TCP linear velocity in mm/s.
 
@@ -664,6 +719,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def connect_hardware(self, port_str: str) -> int:
         """Connect to robot hardware via serial port.
 
@@ -674,6 +730,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def select_profile(self, profile: str) -> int:
         """Set the motion profile (e.g. ``"TOPPRA"``).
 
@@ -684,6 +741,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def select_tool(self, tool_name: str, variant_key: str = "") -> int:
         """Set the active end-effector tool on the controller.
 
@@ -694,6 +752,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def set_tcp_offset(self, x: float = 0, y: float = 0, z: float = 0) -> int:
         """Set TCP offset in mm, composed on top of the current tool transform.
 
@@ -708,6 +767,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def tcp_offset(self) -> list[float]:
         """Query current TCP offset in mm [x, y, z].
 
@@ -726,6 +786,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def set_payload(
         self,
         mass: float,
@@ -759,6 +820,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.MOTION, move_type="joints", mints_index=False)
     async def estimate_payload(
         self,
         spread: float = 0.5,
@@ -801,6 +863,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUERY)
     async def payload(self) -> PayloadResult | None:
         """The payload the runtime is currently carrying.
 
@@ -822,6 +885,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUEUED)
     async def write_io(self, index: int, value: int) -> int:
         """Set digital output by logical index (0 = first output pin).
 
@@ -832,6 +896,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUEUED)
     async def tool_action(
         self,
         tool_key: str,
@@ -854,6 +919,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.SYSTEM)
     async def reset_state(self) -> int:
         """Reset controller state (world shapes, tool selection, errors).
 
@@ -864,6 +930,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUEUED)
     async def checkpoint(self, label: str) -> int:
         """Insert a checkpoint marker in the command queue.
 
@@ -874,6 +941,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
+    @command(CommandKind.QUEUED)
     async def delay(self, seconds: float) -> int:
         """Insert a non-blocking delay in the command queue.
 
