@@ -36,6 +36,7 @@ R = TypeVar("R")
 ClientT = TypeVar("ClientT", bound=RobotClient)
 ClientCo = TypeVar("ClientCo", bound=RobotClient, covariant=True)
 logger = logging.getLogger(__name__)
+SKILL_API_VERSION = 1
 SkillPhase = Literal["started", "progress", "completed", "failed", "cancelled"]
 
 
@@ -55,8 +56,11 @@ class SkillSpec:
     id: str
     version: str
     requires: frozenset[str] = frozenset()
+    api_version: int = SKILL_API_VERSION
 
     def __post_init__(self) -> None:
+        if type(self.api_version) is not int or self.api_version < 1:
+            raise ValueError("Skill API version must be a positive integer")
         if not re.fullmatch(r"[a-z][a-z0-9_.-]*", self.id):
             raise ValueError(
                 "Skill id must be a stable lowercase, namespaced identifier"
@@ -92,6 +96,17 @@ class SkillError(RuntimeError):
 
 class MissingCapability(SkillError):
     """The supplied client cannot provide a required operation."""
+
+
+class IncompatibleSkill(SkillError):
+    """The skill requires a different runtime API."""
+
+
+def _check_api(spec: SkillSpec) -> None:
+    if spec.api_version != SKILL_API_VERSION:
+        raise IncompatibleSkill(
+            f"{spec.id} requires skill API {spec.api_version}; this runtime provides {SKILL_API_VERSION}. Install a compatible plugin/runtime version."
+        )
 
 
 class UnresolvedPreview(SkillError):
@@ -261,6 +276,7 @@ class Skill(Generic[ClientT, P, R]):
         invocation.emit("started")
         try:
             execution.check()
+            _check_api(self.spec)
             missing = self.spec.requires - client.skill_capabilities
             if missing:
                 raise MissingCapability(
@@ -289,12 +305,16 @@ class Skill(Generic[ClientT, P, R]):
 
 
 def skill(
-    *, id: str, version: str, requires: frozenset[str] = frozenset()
+    *,
+    id: str,
+    version: str,
+    requires: frozenset[str] = frozenset(),
+    api_version: int = SKILL_API_VERSION,
 ) -> Callable[
     [Callable[Concatenate[ClientT, P], Coroutine[Any, Any, R]]], Skill[ClientT, P, R]
 ]:
     """Decorate an async function; metadata never changes its Python arguments."""
-    spec = SkillSpec(id, version, requires)
+    spec = SkillSpec(id, version, requires, api_version)
 
     def decorate(
         function: Callable[Concatenate[ClientT, P], Coroutine[Any, Any, R]],
@@ -304,7 +324,9 @@ def skill(
     return decorate
 
 
-def discover_skills() -> dict[str, Skill[Any, ..., Any]]:
+def discover_skills(
+    *, diagnostics: list[str] | None = None
+) -> dict[str, Skill[Any, ..., Any]]:
     """Load installed skills, diagnosing broken plugins and rejecting conflicts.
 
     All providers of a duplicated skill id are excluded, independent of entry
@@ -319,13 +341,20 @@ def discover_skills() -> dict[str, Skill[Any, ..., Any]]:
             candidate = ep.load()
             if not isinstance(candidate, Skill):
                 raise TypeError("entry point must reference an @skill callable")
+            _check_api(candidate.spec)
             key = candidate.spec.id
             if key in found or key in conflicts:
                 found.pop(key, None)
                 conflicts.add(key)
                 logger.warning("Conflicting skill id %r; all providers excluded", key)
+                if diagnostics is not None:
+                    diagnostics.append(
+                        f"Conflicting skill id {key!r}; all providers excluded. Give each implementation a unique id."
+                    )
                 continue
             found[key] = candidate
-        except Exception:
+        except Exception as error:
             logger.exception("Cannot load skill plugin %s (%s)", ep.name, ep.value)
+            if diagnostics is not None:
+                diagnostics.append(f"Cannot load {ep.name} ({ep.value}): {error}")
     return found
