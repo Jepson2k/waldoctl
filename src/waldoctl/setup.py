@@ -17,6 +17,8 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
+from .signals import DigitalSignal
+
 PoseValues = tuple[float, float, float, float, float, float]
 ParameterValue = bool | int | float | str
 
@@ -209,6 +211,7 @@ class SetupSnapshot:
     poses: Mapping[str, Pose] = field(default_factory=dict)
     parameters: Mapping[str, Parameter] = field(default_factory=dict)
     tcp_calibrations: Mapping[str, TcpCalibration] = field(default_factory=dict)
+    signals: Mapping[str, DigitalSignal] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for label, kind in (
@@ -216,6 +219,7 @@ class SetupSnapshot:
             ("poses", Pose),
             ("parameters", Parameter),
             ("tcp_calibrations", TcpCalibration),
+            ("signals", DigitalSignal),
         ):
             entries = dict(getattr(self, label))
             for name, value in entries.items():
@@ -280,9 +284,14 @@ class SetupSnapshot:
             self, tcp_calibrations={**self.tcp_calibrations, name: calibration}
         )
 
+    def with_signal(self, name: str, signal: DigitalSignal) -> SetupSnapshot:
+        return replace(self, signals={**self.signals, validate_name(name): signal})
+
     def without(self, kind: str, name: str) -> SetupSnapshot:
-        if kind not in {"frames", "poses", "parameters", "tcp_calibrations"}:
-            raise ValueError("Expected frames, poses, parameters or tcp_calibrations")
+        if kind not in {"frames", "poses", "parameters", "tcp_calibrations", "signals"}:
+            raise ValueError(
+                "Expected frames, poses, parameters, tcp_calibrations or signals"
+            )
         document = self.to_dict()
         del document[kind][name]
         return self.from_dict(document)
@@ -305,6 +314,7 @@ class SetupSnapshot:
             "tcp_calibrations": {
                 k: v.to_dict() for k, v in self.tcp_calibrations.items()
             },
+            "signals": {k: v.to_dict() for k, v in self.signals.items()},
         }
 
     @classmethod
@@ -316,11 +326,19 @@ class SetupSnapshot:
             or document["version"] != 1
         ):
             raise ValueError("Unsupported setup snapshot version (expected 1)")
-        fields = {"version", "frames", "poses", "parameters", "tcp_calibrations"}
+        fields = {
+            "version",
+            "frames",
+            "poses",
+            "parameters",
+            "tcp_calibrations",
+            "signals",
+        }
         if set(document) != fields:
             raise ValueError(f"Setup snapshot must contain {', '.join(sorted(fields))}")
         try:
             return cls(
+                signals={k: DigitalSignal(**v) for k, v in document["signals"].items()},
                 frames={k: Frame(**v) for k, v in document["frames"].items()},
                 poses={k: Pose(**v) for k, v in document["poses"].items()},
                 parameters={
