@@ -87,6 +87,10 @@ def test_pivot_calibration_and_separate_orientation_teaching():
         ("position_samples", 3),
         ("position_samples", True),
         ("position_rms_mm", -1),
+        # A residual of `true` is not a measurement: the samples count
+        # rejects a bool for the same reason, and a consumer doing
+        # arithmetic on it gets 1.
+        ("position_rms_mm", True),
         ("position_rms_mm", float("inf")),
         ("position_rms_mm", None),
         ("tool_key", ""),
