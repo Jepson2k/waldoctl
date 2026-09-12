@@ -126,6 +126,14 @@ class CameraCalibration:
                     "Tool camera requires a TCP-relative pose and tool/TCP binding"
                 )
         elif self.mount == "fixed":
+            if self.pose.frame == "TCP":
+                # Refused here rather than in validate(): TCP is the tool
+                # mount's own frame, so a fixed camera naming it is a
+                # mismatched calibration, not a missing setup frame.
+                raise ValueError(
+                    "TCP is the tool-camera pose frame; a fixed camera's pose "
+                    "is relative to a static setup frame"
+                )
             if (
                 self.tool is not None
                 or not isinstance(self.reference_wrf, Pose)

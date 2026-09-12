@@ -51,6 +51,21 @@ def test_camera_resolution_and_binding_workflow():
     with pytest.raises(ValueError, match="observed TCP"):
         camera.world_pose(setup, **context)
 
+    # TCP is the tool camera's own frame, so nothing else may claim it: a
+    # static frame of that name would turn every camera→TCP pose into a world
+    # pose resolved through it, and a fixed camera naming it is a mismatched
+    # calibration rather than a missing frame.
+    with pytest.raises(ValueError, match="reserved"):
+        setup.with_frame("TCP", Frame((1, 2, 3, 0, 0, 0)))
+    with pytest.raises(ValueError, match="tool-camera pose frame"):
+        replace(
+            camera,
+            mount="fixed",
+            pose=Pose((0, 0, 600, 180, 0, 0), frame="TCP"),
+            tool=None,
+            reference_wrf=Pose((0, 0, 0, 0, 0, 0)),
+        )
+
     setup = setup.with_frame("table", Frame((100, 0, 50, 0, 0, 30))).with_frame(
         "stand", Frame((0, 100, 0, 0, 0, 0), parent="table")
     )
