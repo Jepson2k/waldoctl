@@ -18,7 +18,7 @@ from waldoctl.discovery import (
     load_tool_spec_class,
 )
 from waldoctl.errors import RobotError
-from waldoctl.dry_run import DryRunClient
+from waldoctl.dry_run import DryRunClient, is_dry_run
 from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
     DryRun,
@@ -205,6 +205,7 @@ __all__ = [
     "Robot",
     "RobotClient",
     "DryRunClient",
+    "is_dry_run",
     # Command table
     "CommandKind",
     "CommandSpec",
