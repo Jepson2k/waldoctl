@@ -23,6 +23,7 @@ from waldoctl.dry_run import DryRunClient
 from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
     DryRun,
+    CommandNote,
     PathSegment,
     Playback,
     ProgramTarget,
@@ -73,16 +74,14 @@ from waldoctl.programs import (
     Recording,
     parse_unified_diff,
 )
-from waldoctl.results import (
-    DryRunResult,
-    DryRunResultData,
-    IKResult,
-    IKResultData,
-    ObjectAwareDryRunResult,
-    SimulatedDryRunResult,
-    ObjectTrack,
+from waldoctl.results import IKResult, IKResultData
+from waldoctl.ticks import (
+    ObjectTicks,
+    TickBlock,
+    TickIndex,
+    align_rows,
+    following_error,
 )
-from waldoctl.ticks import ObjectTicks, TickBlock, TickIndex
 from waldoctl.robot import Robot
 from waldoctl.notify import ChangeNotifierMixin
 from waldoctl.robot_status import (
@@ -223,15 +222,12 @@ __all__ = [
     "JointsSpec",
     # Results (Protocols + dataclasses)
     "IKResult",
-    "DryRunResult",
     "IKResultData",
-    "DryRunResultData",
-    "ObjectAwareDryRunResult",
-    "SimulatedDryRunResult",
     "ObjectTicks",
     "TickBlock",
     "TickIndex",
-    "ObjectTrack",
+    "align_rows",
+    "following_error",
     # Status (Protocol + dataclasses + enums)
     "StatusBuffer",
     "StatusRate",
@@ -347,6 +343,7 @@ __all__ = [
     "DryRun",
     "Playback",
     "ProgramTarget",
+    "CommandNote",
     "PathSegment",
     "ToolAction",
     "ShapeChange",
