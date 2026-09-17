@@ -64,14 +64,15 @@ class ViewSettings(ChangeNotifierMixin):
     """Show trajectory paths in the scene."""
     envelope_mode: EnvelopeMode = EnvelopeMode.AUTO
     """Workspace envelope visibility (AUTO / ON / OFF)."""
-    divergence_visible: bool = True
-    """Show the achieved path beside the planned one, where a backend
-    simulates. The two differ by servo lag and gravity sag, and seeing
-    where they part is the reason to simulate at all."""
+    predicted_visible: bool = True
+    """Show the predicted path beside the commanded one, where a backend
+    simulates the plant. The two differ by servo lag and gravity sag — the
+    following error — and seeing where they part is the reason to simulate
+    at all."""
     contacts_visible: bool = False
-    """Show contact points and force arrows from the simulated run."""
+    """Show contact points and force arrows from the predicted record."""
     com_visible: bool = False
-    """Show the simulated scene's centre of mass and its drop line."""
+    """Show the predicted record's centre of mass and its drop line."""
 
 
 @binding.bindable_dataclass

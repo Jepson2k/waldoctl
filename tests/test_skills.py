@@ -13,6 +13,7 @@ from waldoctl.client import RobotClient
 from waldoctl.skills import (
     MissingCapability,
     IncompatibleSkill,
+    Requires,
     discover_skills,
     observe_skills,
     report_progress,
@@ -33,7 +34,7 @@ async def future_skill(client: RobotClient) -> None:
 
 def test_nested_functions_keep_arguments_results_events_and_context():
     # No robot operation is performed: this test exercises Python composition.
-    client = cast(RobotClient, SimpleNamespace(skill_capabilities=frozenset()))
+    client = cast(RobotClient, SimpleNamespace(robot=None))
 
     @skill(id="test.sum", version="1.0.0")
     async def total(client: RobotClient, *, values: list[int]) -> int:
@@ -66,27 +67,40 @@ def test_nested_functions_keep_arguments_results_events_and_context():
 def test_capability_failure_and_plugin_conflicts_do_not_execute_or_hide_other_skills(
     monkeypatch, caplog
 ):
-    @skill(id="test.contact", version="1.0.0", requires=frozenset({"motion.contact"}))
-    async def contact(client: RobotClient) -> None:
-        pytest.fail("Unsupported skill must fail before entering its body")
+    ran: list[str] = []
 
-    client = cast(RobotClient, SimpleNamespace(skill_capabilities=frozenset()))
+    @skill(id="test.contact", version="1.0.0", requires=Requires(force_torque=True))
+    async def contact(client: RobotClient) -> None:
+        ran.append("body")
+
+    def backend(**flags: bool) -> object:
+        reported = dict.fromkeys(
+            ("has_force_torque", "has_freedrive", "has_collision_checking"), False
+        )
+        return SimpleNamespace(**(reported | flags))
+
+    # A backend that reports the feature runs the body.
+    equipped = cast(RobotClient, SimpleNamespace(robot=backend(has_force_torque=True)))
+    asyncio.run(contact.async_call(equipped))
+    assert ran == ["body"]
+
+    # A backend that does not fails before entering it.
+    bare = cast(RobotClient, SimpleNamespace(robot=backend()))
     events = []
     with (
         observe_skills(events.append),
-        pytest.raises(MissingCapability, match="motion.contact"),
+        pytest.raises(MissingCapability, match="force_torque"),
     ):
-        asyncio.run(contact.async_call(client))
+        asyncio.run(contact.async_call(bare))
     assert [e.phase for e in events] == ["started", "failed"]
+    assert ran == ["body"], "the unsupported call must not reach the body"
 
-    # One capability written as a bare string is refused at declaration. Split
-    # into letters it would register and then demand five one-letter
-    # capabilities of every client that ran it.
-    with pytest.raises(ValueError, match="not one string"):
-
-        @skill(id="test.typo", version="1.0.0", requires="motion.contact")
-        async def typo(client: RobotClient) -> None:
-            pytest.fail("A skill with a mistyped capability set must not register")
+    # A client naming no backend cannot confirm the feature, so it is refused
+    # rather than assumed present.
+    client = cast(RobotClient, SimpleNamespace(robot=None))
+    with pytest.raises(MissingCapability, match="force_torque"):
+        asyncio.run(contact.async_call(client))
+    assert ran == ["body"]
 
     # EntryPoint.load performs real Python imports, including a broken provider.
     def ep(name, value):
@@ -150,7 +164,7 @@ def test_skill_timeouts_are_not_cancellation_but_task_cancel_is():
     stops: list[bool] = []
 
     class Client:
-        skill_capabilities = frozenset()
+        robot = None
 
         async def wait_command(self, index: int, timeout: float | None = None):
             await asyncio.sleep(60)

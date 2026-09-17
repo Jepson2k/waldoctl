@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from functools import update_wrapper
 from importlib.metadata import entry_points
 from typing import (
+    TYPE_CHECKING,
     Any,
     Concatenate,
     Generic,
@@ -31,6 +32,9 @@ from uuid import uuid4
 
 from waldoctl.client import RobotClient
 from waldoctl.record_values import snapshot_arguments, snapshot_value
+
+if TYPE_CHECKING:
+    from waldoctl.robot import Robot
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -52,11 +56,45 @@ class SyncSkillClient(Protocol[ClientCo]):
     def run_skill(self, invoke: Callable[[ClientCo], Coroutine[Any, Any, R]]) -> R: ...
 
 
+#: The optional backend features a skill may require, each mirroring the
+#: ``has_*`` flag of the same name on ``Robot``.
+_FEATURES = ("force_torque", "freedrive", "collision_checking")
+
+
+@dataclass(frozen=True)
+class Requires:
+    """Optional backend features a skill needs before it may run.
+
+    One flag per ``Robot.has_*`` capability. Everything else on the client
+    ABC is required of every backend, so only these need declaring.
+    """
+
+    force_torque: bool = False
+    freedrive: bool = False
+    collision_checking: bool = False
+
+    def __bool__(self) -> bool:
+        return any(getattr(self, name) for name in _FEATURES)
+
+    def missing_from(self, robot: Robot | None) -> tuple[str, ...]:
+        """Required features *robot* does not report.
+
+        A client that names no backend cannot confirm any of them, so every
+        requirement is reported missing rather than assumed met.
+        """
+        return tuple(
+            name
+            for name in _FEATURES
+            if getattr(self, name)
+            and (robot is None or not getattr(robot, f"has_{name}"))
+        )
+
+
 @dataclass(frozen=True)
 class SkillSpec:
     id: str
     version: str
-    requires: frozenset[str] = frozenset()
+    requires: Requires = Requires()
     api_version: int = SKILL_API_VERSION
 
     def __post_init__(self) -> None:
@@ -68,16 +106,6 @@ class SkillSpec:
             )
         if not re.fullmatch(r"\d+\.\d+\.\d+", self.version):
             raise ValueError("Skill version must have major.minor.patch form")
-        if isinstance(self.requires, str):
-            # `requires="motion"` would become a frozenset of its letters, and
-            # every letter is a valid identifier, so the skill would register
-            # and then demand capabilities named m, o, t, i and n.
-            raise ValueError(
-                "Capabilities must be a collection of identifiers, not one string"
-            )
-        object.__setattr__(self, "requires", frozenset(self.requires))
-        if any(not re.fullmatch(r"[a-z][a-z0-9_.-]*", key) for key in self.requires):
-            raise ValueError("Capabilities must be nonempty lowercase identifiers")
 
 
 @dataclass(frozen=True)
@@ -312,10 +340,10 @@ class Skill(Generic[ClientT, P, R]):
         try:
             execution.check()
             _check_api(self.spec)
-            missing = self.spec.requires - client.skill_capabilities
+            missing = self.spec.requires.missing_from(client.robot)
             if missing:
                 raise MissingCapability(
-                    f"{self.spec.id} requires: {', '.join(sorted(missing))}"
+                    f"{self.spec.id} requires: {', '.join(missing)}"
                 )
             guarded = cast(ClientT, _Guard(client, execution)) if root else client
             result = await self.function(guarded, *args, **kwargs)
@@ -343,7 +371,7 @@ def skill(
     *,
     id: str,
     version: str,
-    requires: frozenset[str] = frozenset(),
+    requires: Requires = Requires(),
     api_version: int = SKILL_API_VERSION,
 ) -> Callable[
     [Callable[Concatenate[ClientT, P], Coroutine[Any, Any, R]]], Skill[ClientT, P, R]

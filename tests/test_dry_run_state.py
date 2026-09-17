@@ -16,13 +16,13 @@ class _Target:
 
 
 def test_playback_step_channel_fires_on_executing_step_changes():
-    """Running scripts advance executing_step_index; step listeners fan out."""
+    """Running scripts advance executing_command; step listeners fan out."""
     pb = Playback()
     step_calls: list[tuple[int, bool]] = []
     pb.add_step_listener(
-        lambda: step_calls.append((pb.executing_step_index, pb.executing_step_at_end))
+        lambda: step_calls.append((pb.executing_command, pb.executing_step_at_end))
     )
-    pb.executing_step_index = 0
+    pb.executing_command = 0
     pb.executing_step_at_end = False
     pb.notify_step_changed()
     pb.executing_step_at_end = True
