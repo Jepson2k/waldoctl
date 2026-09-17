@@ -34,19 +34,22 @@ Async callers supply the wrapped async client directly.
 
 ## Capabilities and discovery
 
-`requires=frozenset({"motion.linear"})` rejects an invocation before its body
-when the supplied client's `skill_capabilities` lacks that operation. The common
-ABC advertises its required joint and linear motion operations. Backends may
-extend this set for implemented operations; a capability is not evidence of
-current readiness, calibration, or a safety certification. Native command gates
-still decide whether each command can execute.
+`requires=Requires(force_torque=True)` rejects an invocation before its body
+when the backend does not report that feature. One flag per `has_*` capability
+on `Robot` — `force_torque`, `freedrive`, `collision_checking` — because every
+other control operation on the client ABC is required of every backend and
+needs no declaring.
 
-A backend-specific skill can annotate its first argument with that backend's
-`AsyncRobotClient` to retain native method completion and type checking. Require
-`backend.par6` or `backend.parol6` when using their respective APIs. These
-identity capabilities identify the API, not optional hardware or readiness;
-additional operations still need their own checks. Shared skills should use
-the common `RobotClient` ABC and operation capabilities.
+The check reads `client.robot`, so a client that names no backend cannot
+confirm any requirement and every one of them is reported missing. A flag says
+the backend implements the feature, not that the arm is calibrated, homed, or
+currently in that mode; native command gates still decide whether each command
+can execute.
+
+A backend-specific skill annotates its first argument with that backend's
+`AsyncRobotClient`, which keeps native method completion and makes passing the
+wrong client a type error rather than a runtime one. Shared skills take the
+common `RobotClient` ABC.
 
 Personal modules work with normal imports. Installed plugins may also register:
 
