@@ -142,7 +142,7 @@ def test_opt_in_records_bound_arguments_and_results_without_capturing_client():
         positions.append(await double.async_call(client, 3))
         return Outcome([p * scale for p in positions], "private-token")
 
-    client = cast(RobotClient, SimpleNamespace(skill_capabilities=frozenset()))
+    client = cast(RobotClient, SimpleNamespace(robot=None))
     positions = [1.0, 2.0]
     detailed, ordinary = [], []
     with (
