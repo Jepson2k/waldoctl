@@ -26,11 +26,11 @@ Every method carries a `@command(kind)` marker and `command_table()` reads them 
 
 ### `DryRunClient`
 
-A lightweight shortcut for quick TCP path visualization and basic path verification. Unlike the full simulation mode available on the regular async/sync clients (which ticks the entire controller loop), the dry-run client just runs the motion planner and returns the resulting TCP trajectories and joint paths directly -- fast enough for interactive preview without standing up a full simulated robot.
+The offline client a program runs against for a preview. It takes the same calls as a live client and answers them the same way -- a queue index, a code, a refusal -- and gives two tick-indexed records for the program so far. `plan()` is the *commanded* record, the planner's answer, fast enough to run behind a keystroke; `simulate()` is the *predicted* one, the same commands through the backend's control loop and plant. A backend with no plant returns the plan from `simulate()` too. Both are a `TickIndex` on one row axis with a `TickBlock` per command, and `following_error(commanded, predicted)` is the gap between them, compared by command so a run that settles longer than its plan still lines up.
 
 ### World
 
-A `Shape` (`Box`, `Sphere`, `Cylinder`, `Capsule`, `Cone`, `Ellipsoid`) is one thing in the robot's world, in metres and radians. What it *is* follows from what it declares: `collision=False` is a visual marker, a plain shape is a keep-out, and a shape carrying `physics=Physical(...)` is also a body in a backend's contact simulation -- a static fixture without `mass`, a free object with one. `ShapeWorld` is a backend's applied world as read back: the `installation` layer from its robot config, the `program` layer the last `set_shapes` applied, and `floor_z_m`, the installation floor the backend enforces and rests objects on. `waldoctl.world` is the one JSON codec for a saved world, a library object or an import/export document. `ObjectTrack` reports where a physical object went during a previewed program, and `SceneHandle` is a plugin's window into the host's 3D scene, including proposing shapes for the installation layer.
+A `Shape` (`Box`, `Sphere`, `Cylinder`, `Capsule`, `Cone`, `Ellipsoid`) is one thing in the robot's world, in metres and radians. What it *is* follows from what it declares: `collision=False` is a visual marker, a plain shape is a keep-out, and a shape carrying `physics=Physical(...)` is also a body in a backend's contact simulation -- a static fixture without `mass`, a free object with one. `ShapeWorld` is a backend's applied world as read back: the `installation` layer from its robot config, the `program` layer the last `set_shapes` applied, and `floor_z_m`, the installation floor the backend enforces and rests objects on. `waldoctl.world` is the one JSON codec for a saved world, a library object or an import/export document. `ObjectTicks` on a predicted record reports where a physical object went during a previewed program, and `SceneHandle` is a plugin's window into the host's 3D scene, including proposing shapes for the installation layer.
 
 ### Tools
 
@@ -42,16 +42,17 @@ A `ToolSpec` describes an end-of-arm tool: TCP offset, 3D mesh descriptors for v
 |--------|----------|
 | `robot` | `Robot` ABC -- identity, joints, tools, kinematics, lifecycle, client factories |
 | `client` | `RobotClient` ABC -- async control interface |
-| `dry_run` | `DryRunClient` protocol -- lightweight path preview without full simulation |
+| `dry_run` | `DryRunClient` protocol -- the offline client whose `plan()` and `simulate()` return the commanded and predicted records |
 | `tools` | Tool hierarchy, mesh/motion descriptors, enums, `ToolStatus` |
 | `joints` | Frozen dataclasses for joint configuration and limits |
 | `status` | `StatusBuffer` protocol for real-time state, query result types |
 | `recordings` | Immutable joint/tool observations, capture termination reasons and explicit gap/span inspection |
-| `results` | `IKResult` and `DryRunResult` protocols with concrete dataclasses; `ObjectTrack` |
+| `results` | `IKResult` protocol and its concrete dataclass |
 | `shapes` | `Shape` kinds, `Physical`, `ShapeWorld`, the wire form and the reporting vocabulary |
 | `world` | JSON codec for a `ShapeWorld` -- saved worlds, library entries, import/export |
 | `scene` | `SceneHandle` protocol -- a plugin's window into the host's 3D scene |
 | `dry_run_state` | `PathSegment`, `ToolAction` and the other dry-run records a host keeps |
+| `ticks` | `TickIndex`, `TickBlock`, `ObjectTicks`, `align_rows` and `following_error` -- the records a dry run returns and how the two compare |
 | `types` | `Frame` and `Axis` type aliases |
 | `sync_tools` | Sync wrappers for async tool methods |
 

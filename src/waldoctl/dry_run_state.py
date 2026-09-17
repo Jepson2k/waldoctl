@@ -50,26 +50,21 @@ class PathSegment:
     color: str  # Hex color (green / blue / orange / red)
     is_valid: bool  # Whether the segment is IK-reachable
     line_number: int  # Source line that produced this segment
-    joints: list[float] | None = None
+    command: int | None = None  # The TickBlock.command this segment renders
+    start_row: int = 0  # Rows of the commanded record it covers
+    rows: int = 0
     move_type: str = "cartesian"
     is_dashed: bool = True
     show_arrows: bool = True
-    joint_trajectory: list[list[float]] | None = None
     estimated_duration: float | None = None
     requested_duration: float | None = None
     timing_feasible: bool = True
     checkpoint: str | None = None
     is_travel: bool = False
-    # First colliding waypoint index in joint_trajectory (host-side collision
-    # check against the local checker), or None when clear / not checked.
+    # First colliding row as an offset into this segment's rows (host-side
+    # collision check against the local checker), or None when clear / not
+    # checked.
     collision_step: int | None = None
-    # Where the world's physical objects went over this segment: one dict per
-    # object, ``{"name", "poses", "carried", "physics"}`` with ``poses`` a
-    # list of ``[x, y, z, qw, qx, qy, qz]`` rows aligned with
-    # ``joint_trajectory`` (a single row for an object that did not move).
-    # Plain dicts because segments cross the preview process boundary as
-    # dicts; None when the backend previews no physics.
-    object_tracks: list[dict[str, Any]] | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "PathSegment":
@@ -91,9 +86,9 @@ class ToolAction:
     sleep_offset: float = 0.0
     segment_index: int = -1
     tcp_path: list[list[float]] | None = None
-    # Object motion over the action's own duration (a grasp closing on a
-    # block, a release dropping it), same shape as ``PathSegment.object_tracks``.
-    object_tracks: list[dict[str, Any]] | None = None
+    # The program index of the action's own command; ``segment_index`` is
+    # derived from it by the host.
+    command: int = -1
 
 
 @dataclass(slots=True)
@@ -104,6 +99,7 @@ class ToolSelection:
     variant_key: str = ""
     segment_index: int = -1
     line_number: int = 0
+    command: int = -1
 
 
 @dataclass
@@ -118,6 +114,7 @@ class ShapeChange:
     shapes: tuple = ()
     segment_index: int = -1
     line_number: int = 0
+    command: int = -1
 
 
 @binding.bindable_dataclass
@@ -127,15 +124,16 @@ class Playback(ChangeNotifierMixin):
     Mutated continuously during play / pause / step / scrub. Hosted as a
     sub-object on :class:`DryRun`; never reassigned.
 
-    The ``executing_step_*`` fields track step lifecycle for running scripts:
-    when a user script is executing, it advances through waypoints and the
-    host application updates these to distinguish "step N just started" from
-    "step N just completed".
+    ``executing_command`` and ``executing_step_at_end`` track command
+    lifecycle for running scripts: when a user script is executing, it
+    advances through the program's commands and the host application updates
+    these to distinguish "command N just started" from "command N just
+    completed".
 
     The :meth:`ChangeNotifierMixin.add_step_listener` channel on this object
-    carries that high-frequency stream: the host fires it whenever the
-    ``executing_step_*`` fields advance (script start, step start, step
-    complete), so plugins can react per-step on this program alone.
+    carries that high-frequency stream: the host fires it whenever those
+    fields advance (script start, command start, command complete), so
+    plugins can react per-command on this program alone.
     """
 
     is_playing: bool = False
@@ -151,13 +149,16 @@ class Playback(ChangeNotifierMixin):
     """Playback rate multiplier (1.0 = realtime)."""
     active_cursor_line: int = 0
     """1-indexed editor line under the cursor (0 = none)."""
-    executing_step_index: int = -1
-    """Index of the segment the running script is currently executing
-    (-1 = idle). Updated by the script-execution lifecycle, not by playback."""
+    executing_command: int = -1
+    """Program index of the command the running script is executing (-1 =
+    idle): the same index the dry run's ``TickBlock.command`` and
+    ``PathSegment.command`` carry, so the host resolves it to a segment by
+    lookup, never by position. Updated by the script-execution lifecycle,
+    not by playback."""
     executing_step_at_end: bool = False
-    """False = at start of segment; True = at end. Together with
-    ``executing_step_index`` this distinguishes "started step N" from
-    "completed step N" for step-channel listeners."""
+    """False = the command just started; True = it just completed. Together
+    with ``executing_command`` this distinguishes "started N" from
+    "completed N" for step-channel listeners."""
 
 
 @binding.bindable_dataclass(
@@ -169,7 +170,7 @@ class Playback(ChangeNotifierMixin):
         "total_steps",
         "total_duration",
         "final_joints_rad",
-        "ticks_pending",
+        "revision",
         "playback",
     ]
 )
@@ -184,12 +185,14 @@ class DryRun(ChangeNotifierMixin):
     ``playback`` sub-object's leaf fields in place. This class carries no
     playback methods of its own.
 
-    ``last_sim_joints_deg`` and ``ticks`` are intentionally excluded from
-    the bindable field set: they hold numpy arrays, and NiceGUI's
-    ``BindableProperty`` setter does ``old != new`` which on arrays
-    returns an element-wise array (not a scalar bool), raising
-    ``ValueError`` on assignment. They are still normal dataclass
-    attributes; they just aren't reactive.
+    ``last_sim_joints_deg``, ``commanded`` and ``predicted`` are
+    intentionally excluded from the bindable field set: they hold numpy
+    arrays, and NiceGUI's ``BindableProperty`` setter does ``old != new``
+    which on arrays returns an element-wise array (not a scalar bool),
+    raising ``ValueError`` on assignment. They are still normal dataclass
+    attributes; they just aren't reactive — the host assigns
+    ``path_segments`` (derived from ``commanded``) right after them, and
+    that assignment is what bindings see.
     """
 
     # Result fields — assigned wholesale by the host when it runs a dry-run.
@@ -204,17 +207,23 @@ class DryRun(ChangeNotifierMixin):
     final_joints_rad: list[float] | None = None
     last_sim_joints_deg: np.ndarray | None = None
 
-    # What the arm DID, from the backend's physics pass — None until one
-    # has run, and on backends that cannot run one at all. The planned
-    # result above stands alone without it; this refines the picture and
-    # supplies the divergence between the two.
-    ticks: TickIndex | None = None
-    # Whether a physics pass is expected but has not landed. Playback and
-    # scrubbing stay disabled while it is True: a scrub bar over a record
-    # that is still being built seeks into rows that do not exist yet.
-    # False on a backend that cannot simulate, so those hosts behave
-    # exactly as they did before.
-    ticks_pending: bool = False
+    # The two records of the program, and which edit each one answers.
+    # ``revision`` is bumped by the host on every change that re-plans; a
+    # pass carries the revision it was launched for and lands only against
+    # it, so a slow predicted pass never draws over a newer plan.
+    revision: int = 0
+    commanded: TickIndex | None = None
+    commanded_revision: int = -1
+    predicted: TickIndex | None = None
+    predicted_revision: int = -1
 
     # Playback sub-object — mutated in place during playback.
     playback: Playback = field(default_factory=Playback)
+
+    @property
+    def predicted_current(self) -> TickIndex | None:
+        """The predicted record iff it answers the commanded one on screen;
+        None otherwise, which readers treat as predicted == commanded."""
+        if self.predicted is None or self.predicted_revision != self.commanded_revision:
+            return None
+        return self.predicted
