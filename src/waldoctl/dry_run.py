@@ -31,9 +31,13 @@ class DryRunClient(Protocol):
     the file rather than stopping at the first.
     """
 
-    robot: Robot | None
-    """The backend this preview stands in for; a skill checks its
-    requirements against it."""
+    @property
+    def robot(self) -> Robot | None:
+        """The backend this preview stands in for; a skill checks its
+        requirements against it. Read-only here: a backend's client accepts
+        only its own ``Robot``, which the host sets on the concrete client
+        it constructed."""
+        ...
 
     @property
     def tool(self) -> Any: ...
