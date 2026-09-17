@@ -72,6 +72,32 @@ class PathSegment:
 
 
 @dataclass(slots=True)
+class CommandNote:
+    """What the host knows about one program command that the backend's
+    record cannot: the editor line it came from and what the program asked
+    for. ``DryRun.commands[i]`` describes the block whose
+    ``TickBlock.command`` is ``i``.
+    """
+
+    line_number: int
+    """Editor line that issued the command (0 when unknown)."""
+    method: str = ""
+    """The client method that issued it, in the command table's spelling.
+    ``"sleep"`` for a script's ``time.sleep``, which the preview records as
+    a delay the live program never sends; ``""`` when the host did not see
+    the call (a backend queued it on the program's behalf)."""
+    requested_duration: float | None = None
+    """The ``duration=`` the program wrote, when it wrote one."""
+    checkpoint: str | None = None
+    """Checkpoint label; ``"home"`` for a home command."""
+    literal: bool = False
+    """The move's target was written as a literal list, so the host can
+    offer to edit it in place."""
+    travel: bool = False
+    """Issued before the program's first motion."""
+
+
+@dataclass(slots=True)
 class ToolAction:
     """One tool activation captured during simulation."""
 
@@ -198,6 +224,9 @@ class DryRun(ChangeNotifierMixin):
     # Result fields — assigned wholesale by the host when it runs a dry-run.
     targets: list[ProgramTarget] = field(default_factory=list)
     path_segments: list[PathSegment] = field(default_factory=list)
+    # One note per program command, indexed like the records' blocks. Not
+    # bindable: assigned with ``path_segments``, which is what bindings see.
+    commands: list[CommandNote] = field(default_factory=list)
     tool_actions: list[ToolAction] = field(default_factory=list)
     tool_selections: list[ToolSelection] = field(default_factory=list)
     total_steps: int = 0

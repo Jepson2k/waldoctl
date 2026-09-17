@@ -23,6 +23,7 @@ from waldoctl.dry_run import DryRunClient
 from waldoctl.world import world_from_dict, world_to_dict
 from waldoctl.dry_run_state import (
     DryRun,
+    CommandNote,
     PathSegment,
     Playback,
     ProgramTarget,
@@ -342,6 +343,7 @@ __all__ = [
     "DryRun",
     "Playback",
     "ProgramTarget",
+    "CommandNote",
     "PathSegment",
     "ToolAction",
     "ShapeChange",
