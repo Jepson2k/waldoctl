@@ -4,33 +4,31 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 
 from waldoctl import is_dry_run
+from waldoctl.dry_run import DryRunClient
 
 
-class _Preview:
-    def home(self, **kwargs: Any) -> None:
-        return None
+def _members() -> list[str]:
+    return [name for name in vars(DryRunClient) if not name.startswith("_")]
 
-    def move_j(self, angles=None, **kwargs: Any) -> None:
-        return None
 
-    def move_l(self, pose, **kwargs: Any) -> None:
-        return None
-
-    def angles(self) -> list[float]:
-        return [0.0] * 6
-
-    def pose(self) -> list[float]:
-        return [0.0] * 6
-
-    @property
-    def tool(self) -> Any:
-        raise RuntimeError("No tool set. Call select_tool() first.")
-
-    def flush(self) -> list[Any]:
-        return []
+def _preview_type(*, without: str | None = None) -> type:
+    """A client answering to the protocol as this layer declares it, with
+    ``tool`` refusing the way a client does before a selection."""
+    body: dict[str, Any] = {}
+    for name in _members():
+        if name == without:
+            continue
+        if name == "tool":
+            body[name] = property(
+                lambda self: (_ for _ in ()).throw(
+                    RuntimeError("No tool set. Call select_tool() first.")
+                )
+            )
+        else:
+            body[name] = lambda self, *args, **kwargs: None
+    return type("_Preview", (), body)
 
 
 class _Forwarding:
@@ -46,22 +44,13 @@ class _Forwarding:
         return getattr(self._target, name)
 
 
-class _Live(_Preview):
-    """Everything a preview answers except the preview-only member."""
+def test_is_dry_run_resolves_members_through_forwarding_wrappers():
+    preview = _preview_type()()
+    assert is_dry_run(preview)
+    assert is_dry_run(_Forwarding(preview))
+    assert is_dry_run(_Forwarding(_Forwarding(preview)))
 
-    flush = property(lambda self: (_ for _ in ()).throw(AttributeError("flush")))
-
-
-@pytest.mark.parametrize(
-    ("client", "expected"),
-    [
-        (_Preview(), True),
-        (_Forwarding(_Preview()), True),
-        (_Forwarding(_Forwarding(_Preview())), True),
-        (_Live(), False),
-        (_Forwarding(_Live()), False),
-        (object(), False),
-    ],
-)
-def test_is_dry_run_resolves_members_through_forwarding_wrappers(client, expected):
-    assert is_dry_run(client) is expected
+    live = _preview_type(without="flush")()
+    assert not is_dry_run(live)
+    assert not is_dry_run(_Forwarding(live))
+    assert not is_dry_run(object())
