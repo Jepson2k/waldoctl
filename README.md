@@ -28,6 +28,8 @@ Every method carries a `@command(kind)` marker and `command_table()` reads them 
 
 A lightweight shortcut for quick TCP path visualization and basic path verification. Unlike the full simulation mode available on the regular async/sync clients (which ticks the entire controller loop), the dry-run client just runs the motion planner and returns the resulting TCP trajectories and joint paths directly -- fast enough for interactive preview without standing up a full simulated robot.
 
+`is_dry_run(client)` tells a skill whether the client it was handed previews or drives; it resolves the protocol's members the way a call would, so a wrapper that forwards attribute access counts where `isinstance` would not.
+
 ### World
 
 A `Shape` (`Box`, `Sphere`, `Cylinder`, `Capsule`, `Cone`, `Ellipsoid`) is one thing in the robot's world, in metres and radians. What it *is* follows from what it declares: `collision=False` is a visual marker, a plain shape is a keep-out, and a shape carrying `physics=Physical(...)` is also a body in a backend's contact simulation -- a static fixture without `mass`, a free object with one. `ShapeWorld` is a backend's applied world as read back: the `installation` layer from its robot config, the `program` layer the last `set_shapes` applied, and `floor_z_m`, the installation floor the backend enforces and rests objects on. `waldoctl.world` is the one JSON codec for a saved world, a library object or an import/export document. `ObjectTrack` reports where a physical object went during a previewed program, and `SceneHandle` is a plugin's window into the host's 3D scene, including proposing shapes for the installation layer.
