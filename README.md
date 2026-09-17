@@ -20,7 +20,7 @@ The single entry point for a backend. One object gives the frontend access to ev
 
 Async control interface spanning motion (`moveJ`, `moveL`, `home`), streaming position targets (`servoJ`, `servoL`), velocity jog (`jogJ`, `jogL`), queries, I/O, and synchronization. Async keeps operations like jogging, status streaming, and motion commands concurrent. For simple automation scripts where `async`/`await` would be unnecessary ceremony, backends also provide a synchronous client.
 
-Core operations are `@abstractmethod`; advanced features like circular moves or freedrive have defaults that raise `NotImplementedError`, so backends only implement what their hardware supports.
+Control operations are `@abstractmethod`: every backend implements them. What varies by hardware is exposed as a `has_*` flag on `Robot` (`has_force_torque`, `has_freedrive`, `has_collision_checking`), and the handful of methods those gate have defaults that raise `NotImplementedError`.
 
 Every method carries a `@command(kind)` marker and `command_table()` reads them back: `MOTION` and `QUEUED` calls enter the controller's queue and return an index a program may `wait_command`; `SYSTEM` calls apply at once and return `1`/`0`/negative; `CONTROL` acts on the queue (`stop` and `estop` cancel it); `QUERY` reads state a plan knows; `OBSERVATION` reads live state only a running controller can answer; `SYNC` waits. A program runs unchanged against a live client or a preview because every wrapper that stands in for a client, the stepping wrapper, the path preview, a backend's dry run, reads its behaviour for a call from this table instead of its own list, and the conformance test refuses an unclassified method.
 

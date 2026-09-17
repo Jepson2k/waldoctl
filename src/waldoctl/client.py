@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from waldoctl.commands import CommandKind, command
 from waldoctl.shapes import Shape, ShapeWorld
@@ -22,6 +22,9 @@ from waldoctl.status import (
 )
 from waldoctl.tools import ToolSpec
 from waldoctl.types import Axis, Frame
+
+if TYPE_CHECKING:
+    from waldoctl.robot import Robot
 
 
 class RobotClient(ABC):
@@ -54,15 +57,9 @@ class RobotClient(ABC):
     Success is ``>= 0`` for queued motion, ``> 0`` for everything else.
     """
 
-    @property
-    def skill_capabilities(self) -> frozenset[str]:
-        """Operations implemented by this client for skill requirement checks.
-
-        These two operations are required by this ABC. Optional features must
-        be advertised by their backend only when implemented. Capability names
-        describe operations, not certification or current robot readiness.
-        """
-        return frozenset({"motion.joint", "motion.linear"})
+    #: The backend this client drives, when the backend supplies it. Skills
+    #: read its capability flags to check their requirements before running.
+    robot: Robot | None = None
 
     @command(CommandKind.SYNC)
     @abstractmethod
@@ -177,6 +174,7 @@ class RobotClient(ABC):
         ...
 
     @command(CommandKind.MOTION, move_type="smooth_arc")
+    @abstractmethod
     async def move_c(
         self,
         via: list[float],
@@ -197,9 +195,10 @@ class RobotClient(ABC):
         Example:
             rbt.move_c(<via_pose>, <end_pose>, speed=0.5)
         """
-        raise NotImplementedError
+        ...
 
     @command(CommandKind.MOTION, move_type="smooth_spline")
+    @abstractmethod
     async def move_s(
         self,
         waypoints: list[list[float]],
@@ -218,9 +217,10 @@ class RobotClient(ABC):
         Example:
             rbt.move_s(<waypoints>, speed=0.5)
         """
-        raise NotImplementedError
+        ...
 
     @command(CommandKind.MOTION, move_type="cartesian")
+    @abstractmethod
     async def move_p(
         self,
         waypoints: list[list[float]],
@@ -239,7 +239,7 @@ class RobotClient(ABC):
         Example:
             rbt.move_p(<waypoints>, speed=0.5)
         """
-        raise NotImplementedError
+        ...
 
     @command(CommandKind.MOTION, move_type="jog", mints_index=False)
     @abstractmethod
@@ -1005,6 +1005,7 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     @command(CommandKind.QUEUED)
+    @abstractmethod
     async def write_io(
         self, index: int, value: int, *, timeout: float | None = None
     ) -> int:
@@ -1019,9 +1020,10 @@ class RobotClient(ABC):
         Example:
             rbt.write_io(0, 1)   # Set first output HIGH
         """
-        raise NotImplementedError
+        ...
 
     @command(CommandKind.QUEUED)
+    @abstractmethod
     async def tool_action(
         self,
         tool_key: str,
@@ -1042,7 +1044,7 @@ class RobotClient(ABC):
         Example:
             rbt.tool_action("ELECTRIC", "calibrate")
         """
-        raise NotImplementedError
+        ...
 
     @command(CommandKind.SYSTEM)
     async def reset_state(self) -> int:
