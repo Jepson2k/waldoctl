@@ -104,3 +104,25 @@ class DryRunClient(Protocol):
         exactly what ``plan()`` returns.
         """
         ...
+
+
+def is_dry_run(client: object) -> bool:
+    """Whether *client* previews rather than drives.
+
+    ``isinstance`` against the protocol looks its members up statically, so a
+    client that forwards attribute access -- a preview wrapper, the skill
+    guard -- never matches. This asks the way a call would: every public
+    protocol member resolves on *client*.
+    """
+    for name in vars(DryRunClient):
+        if name.startswith("_"):
+            continue
+        try:
+            getattr(client, name)
+        except AttributeError:
+            return False
+        except RuntimeError:
+            # Present but unable to answer yet, as ``tool`` is before a
+            # selection.
+            continue
+    return True
