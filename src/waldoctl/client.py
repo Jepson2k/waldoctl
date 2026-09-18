@@ -861,6 +861,7 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     @command(CommandKind.QUEUED)
+    @abstractmethod
     async def set_tcp_transform(
         self,
         x: float = 0,
@@ -891,6 +892,7 @@ class RobotClient(ABC):
         raise NotImplementedError
 
     @command(CommandKind.QUERY)
+    @abstractmethod
     async def tcp_transform(self) -> list[float]:
         """Read the applied user TCP transform as mm and intrinsic XYZ degrees.
 

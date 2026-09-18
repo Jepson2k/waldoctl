@@ -5,7 +5,7 @@ from types import MappingProxyType
 import numpy as np
 import pytest
 
-from waldoctl.setup import Frame, Parameter, Pose, SetupSnapshot
+from waldoctl.setup import Frame, Parameter, Pose, SetupSnapshot, TcpCalibration
 
 
 def test_fixture_update_moves_shared_poses_without_mutating_loaded_values():
@@ -91,3 +91,51 @@ def test_invalid_setup_never_resolves_into_a_motion_target():
     assert SetupSnapshot.from_dict(MappingProxyType(setup.to_dict())).resolve(
         "pick"
     ).values == pytest.approx(setup.resolve("pick").values)
+
+
+def test_tcp_calibration_provenance_survives_edits_and_refuses_invalid_fields():
+    saved = TcpCalibration(
+        (11, -7, 115, 0, 90, 0),
+        tool_key="GRIPPER",
+        variant_key="probe",
+        position_rms_mm=0.02,
+        position_samples=4,
+        orientation_reference="fixture",
+    )
+    snapshot = SetupSnapshot().with_tcp_calibration("probe", saved)
+    document = snapshot.to_dict()
+    loaded = SetupSnapshot.from_dict(document)
+    document["tcp_calibrations"]["probe"]["values"][2] = 999
+    edited = (
+        loaded.with_frame("fixture", Frame())
+        .with_pose("pick", Pose((1, 2, 3, 0, 0, 0), "fixture"))
+        .with_parameter("speed", Parameter(0.2))
+    )
+    assert edited.tcp_calibrations["probe"] == saved
+    assert edited.tcp_calibrations["probe"].matrix()[:3, 3] == pytest.approx(
+        (11, -7, 115)
+    )
+    assert edited.tcp_calibrations["probe"].matrix()[:3, :3] == pytest.approx(
+        np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]), abs=1e-12
+    )
+    assert not edited.without("tcp_calibrations", "probe").tcp_calibrations
+
+    for field, value in (
+        ("values", [0, 0, float("nan"), 0, 0, 0]),
+        ("values", [0, 0, 0]),
+        ("position_samples", 3),
+        ("position_samples", True),
+        ("position_rms_mm", -1),
+        # A residual of `true` is not a measurement: the samples count
+        # rejects a bool for the same reason, and a consumer doing
+        # arithmetic on it gets 1.
+        ("position_rms_mm", True),
+        ("position_rms_mm", float("inf")),
+        ("position_rms_mm", None),
+        ("tool_key", ""),
+        ("orientation_reference", "../fixture"),
+    ):
+        invalid = snapshot.to_dict()
+        invalid["tcp_calibrations"]["probe"][field] = value
+        with pytest.raises(ValueError):
+            SetupSnapshot.from_dict(invalid)
