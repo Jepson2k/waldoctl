@@ -105,11 +105,6 @@ class Robot(ABC):
         return False
 
     @property
-    def has_tcp_transform(self) -> bool:
-        """Whether the backend applies and reads full user TCP transforms."""
-        return False
-
-    @property
     @abstractmethod
     def digital_outputs(self) -> int:
         """Number of digital output pins."""
