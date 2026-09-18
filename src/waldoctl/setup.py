@@ -12,12 +12,15 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from .signals import DigitalSignal
+
+if TYPE_CHECKING:
+    from .camera import CameraCalibration
 
 PoseValues = tuple[float, float, float, float, float, float]
 ParameterValue = bool | int | float | str
@@ -212,14 +215,18 @@ class SetupSnapshot:
     parameters: Mapping[str, Parameter] = field(default_factory=dict)
     tcp_calibrations: Mapping[str, TcpCalibration] = field(default_factory=dict)
     signals: Mapping[str, DigitalSignal] = field(default_factory=dict)
+    cameras: Mapping[str, CameraCalibration] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        from .camera import CameraCalibration
+
         for label, kind in (
             ("frames", Frame),
             ("poses", Pose),
             ("parameters", Parameter),
             ("tcp_calibrations", TcpCalibration),
             ("signals", DigitalSignal),
+            ("cameras", CameraCalibration),
         ):
             entries = dict(getattr(self, label))
             for name, value in entries.items():
@@ -227,8 +234,11 @@ class SetupSnapshot:
                 if not isinstance(value, kind):
                     raise ValueError(f"{label}/{name} requires {kind.__name__}")
             object.__setattr__(self, label, MappingProxyType(entries))
-        if {"WRF", "TRF"} & self.frames.keys():
-            raise ValueError("WRF and TRF are reserved native frame names")
+        if {"WRF", "TRF", "TCP"} & self.frames.keys():
+            # TCP is the tool-camera pose frame: a static frame of that name
+            # would silently turn every camera→TCP pose into a world pose
+            # resolved through it.
+            raise ValueError("WRF, TRF and TCP are reserved frame names")
         for name in self.frames:
             self.frame_matrix(name)
         for pose in self.poses.values():
@@ -287,10 +297,20 @@ class SetupSnapshot:
     def with_signal(self, name: str, signal: DigitalSignal) -> SetupSnapshot:
         return replace(self, signals={**self.signals, validate_name(name): signal})
 
+    def with_camera(self, name: str, calibration: CameraCalibration) -> SetupSnapshot:
+        return replace(self, cameras={**self.cameras, validate_name(name): calibration})
+
     def without(self, kind: str, name: str) -> SetupSnapshot:
-        if kind not in {"frames", "poses", "parameters", "tcp_calibrations", "signals"}:
+        if kind not in {
+            "frames",
+            "poses",
+            "parameters",
+            "tcp_calibrations",
+            "signals",
+            "cameras",
+        }:
             raise ValueError(
-                "Expected frames, poses, parameters, tcp_calibrations or signals"
+                "Expected frames, poses, parameters, tcp_calibrations, signals or cameras"
             )
         document = self.to_dict()
         del document[kind][name]
@@ -315,11 +335,14 @@ class SetupSnapshot:
                 k: v.to_dict() for k, v in self.tcp_calibrations.items()
             },
             "signals": {k: v.to_dict() for k, v in self.signals.items()},
+            "cameras": {k: v.to_dict() for k, v in self.cameras.items()},
         }
 
     @classmethod
     def from_dict(cls, document: Mapping[str, Any]) -> SetupSnapshot:
         """Decode a versioned snapshot, refusing unknown fields or references."""
+        from .camera import CameraCalibration
+
         if (
             not isinstance(document, Mapping)
             or type(document.get("version")) is not int
@@ -333,11 +356,16 @@ class SetupSnapshot:
             "parameters",
             "tcp_calibrations",
             "signals",
+            "cameras",
         }
         if set(document) != fields:
             raise ValueError(f"Setup snapshot must contain {', '.join(sorted(fields))}")
         try:
             return cls(
+                cameras={
+                    k: CameraCalibration.from_dict(v)
+                    for k, v in document["cameras"].items()
+                },
                 signals={k: DigitalSignal(**v) for k, v in document["signals"].items()},
                 frames={k: Frame(**v) for k, v in document["frames"].items()},
                 poses={k: Pose(**v) for k, v in document["poses"].items()},
