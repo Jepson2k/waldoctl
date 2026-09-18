@@ -58,6 +58,20 @@ A `ToolSpec` describes an end-of-arm tool: TCP offset, 3D mesh descriptors for v
 
 For guides on implementing a backend or building scripts, see the [PAROL Web Commander documentation](https://github.com/Jepson2k/PAROL-Web-Commander).
 
+## TCP calibration
+
+`SetupSnapshot.tcp_calibrations` stores named `TcpCalibration` values, tool/variant
+bindings and measurement provenance. The setup codec validates one versioned
+schema; snapshots and exports retain their fixed values. The pivot solve and
+orientation teaching that produce a calibration belong to the host application.
+
+Backends implement `set_tcp_transform` and `tcp_transform`: six values in
+millimetres and intrinsic XYZ degrees, composed as `T_registered_tool @ T_user`.
+Wait for the setter's returned command index before readback. The legacy
+`set_tcp_offset(x, y, z)` clears user rotation; failed readback raises instead
+of substituting a zero transform. Physical tool meshes and inertial frames
+remain attached to their registered links.
+
 ## License
 
 [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the attribution notices

@@ -217,6 +217,8 @@ class Robot(ABC):
         tool_key: str,
         tcp_offset_m: tuple[float, float, float] | None = None,
         variant_key: str | None = None,
+        *,
+        tcp_rotation_rad: tuple[float, float, float] | None = None,
     ) -> None:
         """Apply tool transform to the local FK/IK model.
 
@@ -225,6 +227,8 @@ class Robot(ABC):
         *tcp_offset_m*: optional (x, y, z) user offset in meters, composed
         on top of the tool's registered transform.
         *variant_key*: optional variant whose TCP overrides the tool default.
+        *tcp_rotation_rad*: intrinsic XYZ user rotation, composed after the
+        registered tool transform together with ``tcp_offset_m``.
         """
         ...
 
