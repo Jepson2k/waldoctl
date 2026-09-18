@@ -62,23 +62,17 @@ For guides on implementing a backend or building scripts, see the [PAROL Web Com
 
 ## TCP calibration
 
-`waldoctl.calibration.calibrate_tcp_position` fits the position of a fixed tip
-from at least four registered-tool WRF poses, rejecting degenerate orientations
-and inconsistent measurements. Remove any applied user TCP correction before
-supplying those poses. `teach_tcp_orientation` separately derives intrinsic XYZ
-angles from a nominal tool pose and explicit WRF reference axes. Neither helper
-acquires observations or sends robot commands.
-
 `SetupSnapshot.tcp_calibrations` stores named `TcpCalibration` values, tool/variant
 bindings and measurement provenance. The setup codec validates one versioned
-schema; snapshots and exports retain their fixed values.
+schema; snapshots and exports retain their fixed values. The pivot solve and
+orientation teaching that produce a calibration belong to the host application.
 
-Backends advertising `Robot.has_tcp_transform` implement `set_tcp_transform`
-and `tcp_transform`: six values in millimetres and intrinsic XYZ degrees,
-composed as `T_registered_tool @ T_user`. Wait for the setter's returned command
-index before readback. The legacy `set_tcp_offset(x, y, z)` clears user rotation;
-failed readback raises instead of substituting a zero transform. Physical tool
-meshes and inertial frames remain attached to their registered links.
+Backends implement `set_tcp_transform` and `tcp_transform`: six values in
+millimetres and intrinsic XYZ degrees, composed as `T_registered_tool @ T_user`.
+Wait for the setter's returned command index before readback. The legacy
+`set_tcp_offset(x, y, z)` clears user rotation; failed readback raises instead
+of substituting a zero transform. Physical tool meshes and inertial frames
+remain attached to their registered links.
 
 ## License
 
