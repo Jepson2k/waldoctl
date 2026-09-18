@@ -5,7 +5,9 @@ import pytest
 from waldoctl.recordings import Demonstration, RecordedSample
 
 
-def _sample(seq: int, observed_ns: int, received_ns: int | None = None) -> RecordedSample:
+def _sample(
+    seq: int, observed_ns: int, received_ns: int | None = None
+) -> RecordedSample:
     received = observed_ns + 5_000 if received_ns is None else received_ns
     return RecordedSample(seq, observed_ns, received, (1.0, 2.0, 3.0, 4.0, 5.0, 6.0))
 
