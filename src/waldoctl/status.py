@@ -27,6 +27,16 @@ class StatusBuffer(Protocol):
     Each field is a numpy array for zero-copy access in the hot path.
     """
 
+    session_id: int
+    """Nonzero identifier for this controller publisher's lifetime; changes
+    after restart. Zero means session metadata is unavailable."""
+    seq: int
+    """Status publication sequence within the session. Gaps report missed
+    publications, including snapshots skipped by a slow consumer."""
+    mono_time_ns: int
+    """Controller monotonic snapshot time in nanoseconds. This is neither
+    wall-clock time nor a guarantee of each sensor's acquisition time."""
+
     pose: np.ndarray
     """(16,) float64 — flattened 4x4 homogeneous transform."""
     angles: np.ndarray
