@@ -163,10 +163,12 @@ class Demonstration:
                 raise ValueError("Joint count changed during the recording")
             if index:
                 previous = samples[index - 1]
+                # A host clock can tick coarser than the status cadence, so
+                # consecutive publications may share a receipt time.
                 if (
                     sample.seq <= previous.seq
                     or sample.observed_ns <= previous.observed_ns
-                    or sample.received_ns <= previous.received_ns
+                    or sample.received_ns < previous.received_ns
                 ):
                     raise ValueError(
                         "Recording samples must retain their observation order"
