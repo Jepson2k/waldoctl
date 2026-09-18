@@ -76,3 +76,41 @@ def test_world_codec_round_trips_both_layers_and_the_floor():
     )
     assert world_from_dict(world_to_dict(world)) == world
     assert world_from_dict(world_to_dict(ShapeWorld())) == ShapeWorld()
+
+
+def test_attachment_import_keeps_pose_and_requires_fresh_context():
+    import pytest
+    from waldoctl import Attachment
+
+    part = Sphere(name="part", radius=0.02).attach(
+        flange_pose=(0.1, 0.2, 0.3, 0.2, -0.3, 0.5),
+        epoch=2**64 - 1,
+        allowed_contacts=("tool:finger", "shape:fixture"),
+    )
+    world = ShapeWorld(program=(part,), attachment_epoch=2**64 - 1)
+    restored = world_from_dict(world_to_dict(world))
+    assert restored.program == world.program
+    assert not restored.attachments_valid
+    released = restored.program[0].detach(world_pose=(1, 2, 3, 0, 0, 0))
+    assert released.attachment is None and released.pose == (1, 2, 3, 0, 0, 0)
+    assert part.attachment is not None
+    wire = list(part.to_wire())
+    for bad in (
+        [1, "arm"],
+        [1, [["link"]]],
+        [1, None],
+        [1, [""]],
+        [1, ["*"]],
+        [1, ["x", "x"]],
+        [True, []],
+        [0, []],
+        [-1, []],
+        [2**64, []],
+    ):
+        wire[-1] = bad
+        with pytest.raises((ValueError, TypeError)):
+            shape_from_wire(*wire)
+    with pytest.raises(ValueError):
+        Sphere(
+            name="part", radius=0.02, collision=False, attachment=Attachment(epoch=1)
+        )

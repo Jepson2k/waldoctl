@@ -65,6 +65,16 @@ class SceneHandle(Protocol):
         """Whether the displayed program layer matches backend readback."""
         ...
 
+    @property
+    def attachments_valid(self) -> bool:
+        """Whether all displayed attachments match the last controller context."""
+        ...
+
+    @property
+    def attachment_epoch(self) -> int:
+        """Controller context from the last applied-world readback."""
+        ...
+
     def render(self) -> None:
         """(Re)draw the shape layers on the live scene (no-op without one)."""
         ...

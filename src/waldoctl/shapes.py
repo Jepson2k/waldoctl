@@ -18,8 +18,8 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 
-from dataclasses import dataclass, fields
-from typing import cast
+from dataclasses import dataclass, fields, replace
+from typing import Self, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -27,7 +27,52 @@ from numpy.typing import NDArray
 Pose6 = tuple[float, float, float, float, float, float]
 
 # Fields shared by every shape; everything else on a subclass is a coal param.
-_COMMON = ("name", "pose", "collision", "margin", "physics")
+_COMMON = ("name", "pose", "collision", "margin", "physics", "attachment")
+
+
+@dataclass(frozen=True, kw_only=True)
+class Attachment:
+    """A declared flange attachment, bound to a controller's world context.
+
+    ``epoch`` comes from a fresh ``ShapeWorld.attachment_epoch`` readback.
+    A changed controller session, reference, source or tool invalidates it.
+    ``allowed_contacts`` names exact collision-report partners of this shape
+    (URDF links, ``tool:…``, ``shape:…`` or ``install:…``); no wildcards.
+    Only those pairs are exempted. This declaration never confirms a grasp.
+    """
+
+    epoch: int
+    allowed_contacts: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if type(self.epoch) is not int or not 0 < self.epoch < 2**64:
+            raise ValueError("attachment epoch must be a nonzero uint64")
+        if not isinstance(self.allowed_contacts, (tuple, list)):
+            raise ValueError("allowed contacts must be an array of reporting names")
+        contacts = tuple(self.allowed_contacts)
+        if any(
+            not isinstance(name, str)
+            or not name
+            or len(name.encode("utf-8")) > 128
+            or any(c in name for c in "*?[]\x00")
+            for name in contacts
+        ):
+            raise ValueError("allowed contacts require exact nonempty reporting names")
+        if len(contacts) > 32 or len(set(contacts)) != len(contacts):
+            raise ValueError("attachment requires at most 32 distinct contact names")
+        object.__setattr__(self, "allowed_contacts", contacts)
+
+    def to_wire(self) -> list:
+        return [self.epoch, list(self.allowed_contacts)]
+
+    @classmethod
+    def from_wire(cls, value: list | tuple | None) -> Attachment | None:
+        if value is None:
+            return None
+        if not isinstance(value, (list, tuple)) or len(value) != 2:
+            raise ValueError("attachment requires [epoch, allowed_contacts]")
+        epoch, contacts = value
+        return cls(epoch=epoch, allowed_contacts=contacts)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -104,6 +149,12 @@ class ShapeBase:
     physics: Physical | None = None
     """Opts the shape into the simulator's contact world — see
     :class:`Physical`.  None → geometry and keep-out only."""
+    attachment: Attachment | None = None
+    """When set, ``pose`` is relative to the flange, in metres/radians.
+
+    The object follows robot kinematics in collision checks and rendering.
+    Flange placement is independent of the selected TCP offset.
+    """
 
     def __post_init__(self) -> None:
         if len(self.pose) != 6 or not all(math.isfinite(v) for v in self.pose):
@@ -124,7 +175,34 @@ class ShapeBase:
                 "marker and cannot declare physics — a massed body excluded "
                 "from contact would fall through the world forever"
             )
+        if self.attachment is not None:
+            if not isinstance(self.attachment, Attachment):
+                raise ValueError("attachment must be an Attachment")
+            if not self.collision or self.physics is not None:
+                raise ValueError(
+                    "attached shapes require collision geometry without physics"
+                )
+            if not self.name or len(self.name.encode("utf-8")) > 128:
+                raise ValueError(
+                    "attached shapes require a nonempty name of at most 128 bytes"
+                )
+            if f"shape:{self.name}" in self.attachment.allowed_contacts:
+                raise ValueError("a shape cannot declare contact with itself")
         self._validate_params()
+
+    def attach(
+        self, *, flange_pose: Pose6, epoch: int, allowed_contacts: tuple[str, ...] = ()
+    ) -> Self:
+        """Return a flange-relative declaration; apply it with ``set_shapes``."""
+        return replace(
+            self,
+            pose=flange_pose,
+            attachment=Attachment(epoch=epoch, allowed_contacts=allowed_contacts),
+        )
+
+    def detach(self, *, world_pose: Pose6) -> Self:
+        """Return fixed world geometry, discarding all scoped contact allowances."""
+        return replace(self, pose=world_pose, attachment=None)
 
     def _validate_params(self) -> None:
         """Default rule: every coal param is a dimension — finite and > 0."""
@@ -156,6 +234,7 @@ class ShapeBase:
             self.margin,
             self.name,
             None if self.physics is None else self.physics.to_wire(),
+            None if self.attachment is None else self.attachment.to_wire(),
         )
 
 
@@ -225,6 +304,7 @@ def shape_from_wire(
     margin: float | None = None,
     name: str = "",
     physics: list | None = None,
+    attachment: list | tuple | None = None,
 ) -> Shape:
     """Rebuild a ``Shape`` from its ``to_wire`` / persisted form."""
     try:
@@ -246,6 +326,7 @@ def shape_from_wire(
         collision=collision,
         margin=margin,
         physics=Physical.from_wire(physics),
+        attachment=Attachment.from_wire(attachment),
         **dict(zip(pnames, params)),
     )
     return cast(Shape, obj)
@@ -266,6 +347,19 @@ class ShapeWorld:
 
     installation: tuple[Shape, ...] = ()
     program: tuple[Shape, ...] = ()
+    attachment_epoch: int = 0
+    """Current attachment context; zero means attachment is unsupported.
+
+    Reapply explicitly after reconciling the physical scene when this changes.
+    Persisted world files never constitute a fresh context readback.
+    """
+
+    @property
+    def attachments_valid(self) -> bool:
+        return all(
+            s.attachment is None or s.attachment.epoch == self.attachment_epoch
+            for s in self.program
+        )
 
 
 # ---------------------------------------------------------------------------
