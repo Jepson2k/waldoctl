@@ -33,6 +33,7 @@ class _BackendGripper(ElectricGripperTool):
             position_range=(0.0, 1.0),
             speed_range=(0.0, 1.0),
             current_range=(0, 1000),
+            default_current=500,
             **_ZERO_TCP,
         )
         self.calls: list[str] = []
@@ -173,4 +174,22 @@ def test_every_waldoctl_coroutine_has_a_typed_sync_declaration() -> None:
             assert declared is not None and not inspect.iscoroutinefunction(declared), (
                 f"{async_cls.__name__}.{name} is a coroutine with no typed sync "
                 f"declaration on {sync_cls.__name__}: callers see it as Any"
+            )
+
+
+def test_a_default_current_the_gripper_cannot_draw_is_refused() -> None:
+    import pytest
+
+    for bad in (-1, 1001):
+        with pytest.raises(ValueError, match="default_current"):
+            ElectricGripperTool.__init__(
+                _BackendGripper.__new__(_BackendGripper),
+                key="rec",
+                display_name="Recorder",
+                tool_type="gripper",
+                position_range=(0.0, 1.0),
+                speed_range=(0.0, 1.0),
+                current_range=(0, 1000),
+                default_current=bad,
+                **_ZERO_TCP,
             )

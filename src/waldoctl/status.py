@@ -44,7 +44,8 @@ class StatusBuffer(Protocol):
     speeds: np.ndarray
     """(N,) float64 — joint velocities in rad/s."""
     io: np.ndarray
-    """(5,) int32 — [in1, in2, out1, out2, estop]."""
+    """(5,) int32 — [in1, in2, out1, out2, estop]; estop is the physical
+    safety chain (1 = OK), untouched by a software ``estop()``."""
     tool_status: ToolStatus
     """Universal EOAT status (key, state, positions, etc.)."""
     joint_en: np.ndarray
@@ -52,7 +53,8 @@ class StatusBuffer(Protocol):
     cart_en: dict[str, np.ndarray]
     """Frame name -> (12,) int32 Cartesian enable envelope."""
     action_current: str
-    """Currently executing action name."""
+    """Currently executing command, as its snake_case method name
+    (``"move_j"``); empty when idle."""
     action_params: str
     """Brief serialization of current action parameters."""
     action_state: ActionState

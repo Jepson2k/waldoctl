@@ -648,12 +648,20 @@ class ElectricGripperTool(GripperTool):
         position_range: tuple[float, float],
         speed_range: tuple[float, float],
         current_range: tuple[int, int],
+        default_current: int,
         **kwargs: Any,
     ) -> None:
+        lo, hi = current_range
+        if not lo <= default_current <= hi:
+            raise ValueError(
+                f"default_current {default_current} mA is outside "
+                f"current_range {current_range}"
+            )
         super().__init__(**kwargs)
         self._position_range = position_range
         self._speed_range = speed_range
         self._current_range = current_range
+        self._default_current = default_current
 
     @property
     def gripper_type(self) -> GripperType:
@@ -673,6 +681,14 @@ class ElectricGripperTool(GripperTool):
     def current_range(self) -> tuple[int, int]:
         """(min, max) current range in mA."""
         return self._current_range
+
+    @property
+    def default_current(self) -> int:
+        """Grip current in mA that ``set_position``/``open``/``close`` use when
+        the caller passes no ``current``. Every backend picks it explicitly,
+        so an unqualified ``close()`` grips with the same force everywhere
+        the tool is configured the same."""
+        return self._default_current
 
     async def stop(self, **kwargs: object) -> int:
         """Halt the jaws where they are, ahead of anything still queued.

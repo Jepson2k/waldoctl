@@ -140,10 +140,12 @@ class Robot(ABC):
 
     @property
     def motion_profiles(self) -> tuple[str, ...]:
-        """Available motion profile names.
+        """Motion profile names ``select_profile`` accepts — exactly that set,
+        so a caller can offer every entry and none is refused.
 
         At least one profile is required.  The default is ``("linear",)``
-        which backends should override with their actual profiles.
+        which backends should override with their actual profiles; the one
+        selected at startup and after ``reset_state()`` is ``"TOPPRA"``.
         """
         return ("linear",)
 
