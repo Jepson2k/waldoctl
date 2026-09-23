@@ -46,21 +46,27 @@ class RobotClient(ABC):
     decides which half applies, not its palette category:
 
     - A command that mints an index (``CommandSpec.mints_index``: MOTION and
-      QUEUED, except jogs and servo streams) returns its queue index
-      (``>= 0``) once the backend acknowledges it, and ``< 0`` when it could
-      not be confirmed or was rejected. ``wait_command(index)`` resolves it.
+      QUEUED, except jogs, servo streams and ``estimate_payload``) returns
+      its queue index (``>= 0``) once the backend acknowledges it, and
+      ``< 0`` when it could not be confirmed or was rejected.
+      ``wait_command(index)`` resolves it.
+    - Jogs and servo streams are fire-and-forget: ``1`` once the datagram is
+      sent, ``< 0`` when it was refused before sending. Nothing confirms
+      them; ``error()`` and the status stream report what the arm did.
     - Every other command returns ``1`` when the backend confirmed it applied
       the command, ``0`` when unconfirmed (unreachable, or no reply in time —
       the command may or may not have been applied), and ``< 0`` on rejection.
-      A backend may raise instead of returning a negative code on active
-      rejection; callers must treat both as failure.
 
-    A backend that cannot confirm application must never report success.
+    A backend may raise instead of returning a negative code on active
+    rejection; callers must treat both as failure. Outside the streams, a
+    backend that cannot confirm application must never report success.
     Success is ``>= 0`` for an index, ``> 0`` for everything else.
 
-    **Completion:** a queued command that ``stop()`` or ``estop()`` discards
-    completes as FAILED with ``MOTN_CANCELLED``, so ``wait_command`` on it
-    raises instead of running out its timeout.
+    **Completion:** ``stop()``, ``estop()``, ``teleport()`` and
+    ``reset_state()`` discard what the queue holds, the arm's motion and the
+    tool's action alike. Every discarded command completes as FAILED with
+    ``MOTN_CANCELLED``, so ``wait_command`` on it raises instead of running
+    out its timeout.
 
     **Homing:** until the arm is homed only ``jog_j``, ``home`` and (in the
     simulator) ``teleport`` move it; every other motion command is refused
@@ -68,10 +74,10 @@ class RobotClient(ABC):
     positions.
 
     **Waiting:** ``wait=True`` on a command that mints an index blocks until
-    it completes (``wait_command``). ``**wait_kwargs`` are forwarded to that
-    wait; a keyword the wait does not accept — ``rel`` on a method that does
-    not declare it, for instance — raises ``TypeError`` rather than being
-    dropped.
+    it completes (``wait_command``), and ``**wait_kwargs`` are forwarded to
+    that wait. A keyword that neither the method's signature here nor
+    ``wait_command`` declares raises ``TypeError``, with or without
+    ``wait`` — ``rel`` on ``move_c``, for instance, which declares none.
 
     **Planned-move timing:** ``move_j``, ``move_l``, ``move_c``, ``move_s``
     and ``move_p`` take exactly one of *speed* — a fraction ``0 < speed <= 1``
@@ -129,8 +135,8 @@ class RobotClient(ABC):
         angles: list[float] | None = None,
         *,
         pose: list[float] | None = None,
-        duration: float = 0.0,
-        speed: float = 0.0,
+        duration: float | None = None,
+        speed: float | None = None,
         accel: float = 1.0,
         r: float = 0.0,
         rel: bool = False,
@@ -141,12 +147,11 @@ class RobotClient(ABC):
         """Joint-space move. *angles*: joint angles in degrees.
 
         If *pose* is given, performs joint-interpolated move to Cartesian target.
-        *rel*: *angles* are offsets from the current joint angles; ``rel``
-        with *pose* raises ``ValueError``. *r*: blend radius in mm, measured
-        at the TCP, rounding the corner into a following ``move_j``; ``0``
-        stops at the target. Timing: see the class docstring.
-
-        Returns the command index (>= 0) on success, < 0 on failure.
+        *rel*: *angles* are offsets from the joint angles the move starts
+        from; ``rel`` with *pose* raises ``ValueError``. *r*: blend radius
+        in mm, measured at the TCP, rounding the corner into a following
+        ``move_j``; ``0`` stops at the target. Timing: see the class
+        docstring.
 
         Category: Motion
 
@@ -162,8 +167,8 @@ class RobotClient(ABC):
         pose: list[float],
         *,
         frame: Frame = "WRF",
-        duration: float = 0.0,
-        speed: float = 0.0,
+        duration: float | None = None,
+        speed: float | None = None,
         accel: float = 1.0,
         r: float = 0,
         rel: bool = False,
@@ -183,8 +188,6 @@ class RobotClient(ABC):
         ``move_l`` or ``move_c`` (zone shape: see ``move_c``). ``0``, or a
         following command of any other kind, stops at the target. Timing:
         see the class docstring.
-
-        Returns the command index (>= 0) on success, < 0 on failure.
 
         Category: Motion
 
@@ -206,8 +209,6 @@ class RobotClient(ABC):
         calibrated, ``home()`` is a planned move to the home position;
         ``calibrate=True`` re-runs the calibration sequence instead. Both
         routes end at the same home position, held.
-
-        Returns the command index (>= 0) on success, < 0 on failure.
 
         Category: Motion
 
@@ -244,11 +245,9 @@ class RobotClient(ABC):
         *r* measured along the line or arc (at most half that segment) and
         joins the two trim points with a cubic Bézier tangent to both, each
         handle two thirds of its trim; orientation slerps across the zone.
-        For two straight segments this is the quadratic corner through the
-        junction. ``0``, or a following command of any other kind, stops at
-        *end*.
-
-        Returns the command index (>= 0) on success, < 0 on failure.
+        For two straight segments this is the quadratic corner whose control
+        point is the junction, passing near it but not through it. ``0``,
+        or a following command of any other kind, stops at *end*.
 
         Category: Motion
 
@@ -281,8 +280,6 @@ class RobotClient(ABC):
         segment. *frame* ``"TRF"``: waypoints are offsets in the tool frame
         the move starts from. Timing: see the class docstring.
 
-        Returns the command index (>= 0) on success, < 0 on failure.
-
         Category: Motion
 
         Example:
@@ -313,8 +310,6 @@ class RobotClient(ABC):
         waypoint is handled as in ``move_s``. *frame* ``"TRF"``: waypoints
         are offsets in the tool frame the move starts from. Timing: see the
         class docstring.
-
-        Returns the command index (>= 0) on success, < 0 on failure.
 
         Category: Motion
 
@@ -551,8 +546,7 @@ class RobotClient(ABC):
         control: it stays enabled, is not back-driveable (``is_freedrive()``
         is False), and the next motion command is accepted immediately. A
         standing ``pause()`` is cleared with the queue it was holding, and an
-        in-flight tool action halts in place, keeping its grip. Every
-        discarded command completes as failed with ``MOTN_CANCELLED``.
+        in-flight tool action halts in place, keeping its grip.
 
         Category: Control
 
@@ -567,8 +561,7 @@ class RobotClient(ABC):
         """Protective stop: stop all motion and latch the controller
         disabled until ``reset()``.
 
-        Discarded commands complete as failed with ``MOTN_CANCELLED``, and an
-        in-flight tool action halts in place. This is a SOFTWARE stop: it
+        An in-flight tool action halts in place. This is a SOFTWARE stop: it
         never sets the physical e-stop reading (``IO.estop``).
 
         Category: Control
@@ -653,7 +646,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    @command(CommandKind.SYSTEM)
+    @command(CommandKind.SYSTEM, cancels=True)
     async def teleport(
         self,
         angles_deg: list[float],
@@ -662,10 +655,11 @@ class RobotClient(ABC):
         """Instantly set joint angles and optional tool positions (simulator only).
 
         The pose is exact, so the arm counts as homed afterwards and planned
-        motion may follow. Refused (``< 0`` or raised, never ``1``) off the
-        simulator, for a non-finite angle or one outside the hard joint
-        limits, and for *tool_positions* that do not match the fitted tool's
-        DOF count or leave ``[0, 1]``.
+        motion may follow. Whatever was queued or running, arm and tool,
+        is discarded first (see Completion in the class docstring). Refused
+        (``< 0`` or raised, never ``1``) off the simulator, for a non-finite
+        angle or one outside the hard joint limits, and for *tool_positions*
+        that do not match the fitted tool's DOF count or leave ``[0, 1]``.
 
         Category: Control
 
@@ -809,7 +803,8 @@ class RobotClient(ABC):
 
     @command(CommandKind.OBSERVATION)
     async def status(self) -> object | None:
-        """Aggregate status snapshot. Its ``tool_status`` is always a
+        """Aggregate status snapshot, the backend's own type. Whatever the
+        type, it has a ``tool_status`` attribute that is always a
         ``ToolStatus`` — key ``"NONE"`` when no tool is fitted, never None.
 
         Category: Query
@@ -929,9 +924,9 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    @command(CommandKind.SYSTEM)
+    @command(CommandKind.QUEUED)
     async def select_tool(self, tool_name: str, variant_key: str = "") -> int:
-        """Set the active end-effector tool on the controller.
+        """Set the active end-effector tool on the controller, in queue order.
 
         Category: Configuration
 
@@ -940,7 +935,7 @@ class RobotClient(ABC):
         """
         raise NotImplementedError
 
-    @command(CommandKind.SYSTEM)
+    @command(CommandKind.QUEUED)
     async def set_tcp_offset(self, x: float = 0, y: float = 0, z: float = 0) -> int:
         """Set TCP offset in mm, composed on top of the current tool transform.
 
@@ -1164,7 +1159,9 @@ class RobotClient(ABC):
         three numbers; position and speed in ``[0, 1]``), ``calibrate``,
         ``stop`` (halt in place, keep grip) and ``idle`` (release); ``move``
         before a completed ``calibrate`` is refused. ``open``/``close``/
-        ``set_position`` are ToolSpec methods that map onto ``move``.
+        ``set_position`` are ``ElectricGripperTool`` methods that map onto
+        ``move``, filling what the caller leaves out: speed ``0.5``, current
+        ``ElectricGripperTool.default_current``.
 
         Category: I/O
 
@@ -1173,9 +1170,10 @@ class RobotClient(ABC):
         """
         ...
 
-    @command(CommandKind.SYSTEM)
+    @command(CommandKind.SYSTEM, cancels=True)
     async def reset_state(self) -> int:
-        """Reset controller state (world shapes, tool selection, errors, pause).
+        """Reset controller state (world shapes, tool selection, errors, pause),
+        discarding the queue.
 
         Also restores the default motion profile and execution speed. It does
         NOT clear a protective stop (only ``reset()`` does), change homed

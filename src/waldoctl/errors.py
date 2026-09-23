@@ -5,9 +5,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Final
 
-#: The code a queued command completes with when ``stop()`` or ``estop()``
-#: discards it, on every backend: ``wait_command`` raises a
-#: :class:`RobotError` carrying it.
+#: Planned motion refused because the arm is not homed, on every backend.
+MOTN_NOT_HOMED: Final = 35
+
+#: The code a queued command completes with when a stop, a teleport or
+#: ``reset_state()`` discards it, on every backend: ``wait_command`` raises
+#: a :class:`RobotError` carrying it.
 MOTN_CANCELLED: Final = 38
 
 

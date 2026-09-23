@@ -48,7 +48,8 @@ class CommandSpec:
     #: For MOTION: the path shape a preview renders (``joints``, ``cartesian``,
     #: ``smooth_arc``, ``smooth_spline``, ``jog``).
     move_type: str | None = None
-    #: For CONTROL: discards what the queue and any blend hold were waiting on.
+    #: For CONTROL and SYSTEM: discards what the queue and any blend hold
+    #: were waiting on.
     cancels: bool = False
 
 
@@ -66,8 +67,8 @@ def command(
     """
     if (kind is CommandKind.MOTION) != (move_type is not None):
         raise ValueError("move_type is given for MOTION commands and only for them")
-    if cancels and kind is not CommandKind.CONTROL:
-        raise ValueError("only a CONTROL command cancels the queue")
+    if cancels and kind not in (CommandKind.CONTROL, CommandKind.SYSTEM):
+        raise ValueError("only a CONTROL or SYSTEM command cancels the queue")
     queued = kind in (CommandKind.MOTION, CommandKind.QUEUED)
     if mints_index is None:
         mints_index = queued

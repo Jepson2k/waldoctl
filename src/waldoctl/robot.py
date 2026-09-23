@@ -143,11 +143,10 @@ class Robot(ABC):
         """Motion profile names ``select_profile`` accepts — exactly that set,
         so a caller can offer every entry and none is refused.
 
-        At least one profile is required.  The default is ``("linear",)``
-        which backends should override with their actual profiles; the one
-        selected at startup and after ``reset_state()`` is ``"TOPPRA"``.
+        Spelled as ``select_profile`` takes them. Backends override this
+        with the profiles they plan with.
         """
-        return ("linear",)
+        return ("LINEAR",)
 
     @property
     def cartesian_frames(self) -> tuple[str, ...]:

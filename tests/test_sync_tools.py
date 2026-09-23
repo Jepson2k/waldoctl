@@ -25,15 +25,14 @@ class _BackendGripper(ElectricGripperTool):
     """What a backend ships: waldoctl's verbs, plus its own, plus a
     property the base has a default for but the backend computes."""
 
-    def __init__(self) -> None:
+    def __init__(self, current_range: tuple[int, int] = (0, 1000)) -> None:
         super().__init__(
             key="rec",
             display_name="Recorder",
             tool_type="gripper",
             position_range=(0.0, 1.0),
             speed_range=(0.0, 1.0),
-            current_range=(0, 1000),
-            default_current=500,
+            current_range=current_range,
             **_ZERO_TCP,
         )
         self.calls: list[str] = []
@@ -177,19 +176,11 @@ def test_every_waldoctl_coroutine_has_a_typed_sync_declaration() -> None:
             )
 
 
-def test_a_default_current_the_gripper_cannot_draw_is_refused() -> None:
-    import pytest
-
-    for bad in (-1, 1001):
-        with pytest.raises(ValueError, match="default_current"):
-            ElectricGripperTool.__init__(
-                _BackendGripper.__new__(_BackendGripper),
-                key="rec",
-                display_name="Recorder",
-                tool_type="gripper",
-                position_range=(0.0, 1.0),
-                speed_range=(0.0, 1.0),
-                current_range=(0, 1000),
-                default_current=bad,
-                **_ZERO_TCP,
-            )
+def test_an_unqualified_grip_draws_half_the_current_range_through_either_view() -> None:
+    """``move`` always carries a current; the convenience verbs fill in half
+    the range when the caller gives none, as speed defaults to half of its
+    own. Read through the sync view too, which is what a script holds."""
+    for current_range, half in (((0, 1000), 500), ((0, 1001), 500), ((200, 900), 550)):
+        tool = _BackendGripper(current_range)
+        assert tool.default_current == half
+        assert make_sync_tool(tool, asyncio.run).default_current == half
