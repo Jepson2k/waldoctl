@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Final
+
+#: The code a queued command completes with when ``stop()`` or ``estop()``
+#: discards it, on every backend: ``wait_command`` raises a
+#: :class:`RobotError` carrying it.
+MOTN_CANCELLED: Final = 38
 
 
 class RobotError(RuntimeError):
@@ -46,6 +52,11 @@ class RobotError(RuntimeError):
                 self.remedy,
             ),
         )
+
+    @property
+    def cancelled(self) -> bool:
+        """The command was discarded by a stop, not refused or failed."""
+        return self.code == MOTN_CANCELLED
 
     def _key(self) -> tuple:
         return (

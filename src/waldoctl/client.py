@@ -443,6 +443,15 @@ class RobotClient(ABC):
 
         Example:
             rbt.wait_command(<index>)
+
+        Returns:
+            True once the command completed, False when *timeout* ran out
+            first.
+
+        Raises:
+            RobotError: when the command completed as failed — with
+                ``cancelled`` set (code ``MOTN_CANCELLED``) when a stop
+                discarded it.
         """
         ...
 
