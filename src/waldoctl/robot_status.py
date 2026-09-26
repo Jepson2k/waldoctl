@@ -193,9 +193,10 @@ class Joints(ChangeNotifierMixin):
 
     ``speeds``, ``torques``, ``torques_ext`` and ``can_jog_*`` are plain
     lists replaced wholesale on each status tick, so their bindings fire
-    correctly on reassignment. ``torques`` are measured joint torques
-    [Nm]; ``torques_ext`` is the external-torque estimate [Nm] (measured
-    minus the backend's dynamics model — a contact or unmodeled payload).
+    correctly on reassignment. ``speeds`` are joint velocities [deg/s];
+    ``torques`` are measured joint torques [Nm]; ``torques_ext`` is the
+    external-torque estimate [Nm] (measured minus the backend's dynamics
+    model — a contact or unmodeled payload).
     """
 
     angles: AngleArray = field(default_factory=AngleArray)

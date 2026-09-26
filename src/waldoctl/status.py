@@ -42,7 +42,7 @@ class StatusBuffer(Protocol):
     angles: np.ndarray
     """(N,) float64 — joint angles in degrees."""
     speeds: np.ndarray
-    """(N,) float64 — joint velocities in rad/s."""
+    """(N,) float64 — joint velocities in deg/s."""
     io: np.ndarray
     """(5,) int32 — [in1, in2, out1, out2, estop]; estop is the physical
     safety chain (1 = OK), untouched by a software ``estop()``."""

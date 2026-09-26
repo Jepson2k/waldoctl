@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from typing import Any
 
 from waldoctl.sync_tools import make_sync_tool
 from waldoctl.tools import ElectricGripperTool, GripperTool, ToolSpec, ToolStatus
@@ -25,14 +26,14 @@ class _BackendGripper(ElectricGripperTool):
     """What a backend ships: waldoctl's verbs, plus its own, plus a
     property the base has a default for but the backend computes."""
 
-    def __init__(self, current_range: tuple[int, int] = (0, 1000)) -> None:
+    def __init__(self) -> None:
         super().__init__(
             key="rec",
             display_name="Recorder",
             tool_type="gripper",
             position_range=(0.0, 1.0),
             speed_range=(0.0, 1.0),
-            current_range=current_range,
+            current_range=(0, 1000),
             **_ZERO_TCP,
         )
         self.calls: list[str] = []
@@ -41,7 +42,14 @@ class _BackendGripper(ElectricGripperTool):
     def adjust_step(self) -> int | None:
         return 7
 
-    async def set_position(self, position: float, **kwargs: float | int) -> int:
+    async def set_position(
+        self,
+        position: float,
+        *,
+        speed: float = 0.5,
+        current: float = 0.5,
+        **wait_kwargs: Any,
+    ) -> int:
         self.calls.append(f"set_position({position})")
         return 1
 
@@ -49,10 +57,14 @@ class _BackendGripper(ElectricGripperTool):
         self.calls.append("calibrate")
         return 2
 
-    async def open(self, **kwargs: float | int) -> int:
+    async def open(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
         return 3
 
-    async def close(self, **kwargs: float | int) -> int:
+    async def close(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
         return 4
 
     async def status(self) -> ToolStatus:
@@ -174,13 +186,3 @@ def test_every_waldoctl_coroutine_has_a_typed_sync_declaration() -> None:
                 f"{async_cls.__name__}.{name} is a coroutine with no typed sync "
                 f"declaration on {sync_cls.__name__}: callers see it as Any"
             )
-
-
-def test_an_unqualified_grip_draws_half_the_current_range_through_either_view() -> None:
-    """``move`` always carries a current; the convenience verbs fill in half
-    the range when the caller gives none, as speed defaults to half of its
-    own. Read through the sync view too, which is what a script holds."""
-    for current_range, half in (((0, 1000), 500), ((0, 1001), 500), ((200, 900), 550)):
-        tool = _BackendGripper(current_range)
-        assert tool.default_current == half
-        assert make_sync_tool(tool, asyncio.run).default_current == half

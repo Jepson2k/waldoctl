@@ -55,8 +55,8 @@ class DryRunClient(Protocol):
         *,
         pose: list[float] | None = None,
         duration: float = 0.0,
-        speed: float = 0.0,
-        accel: float = 1.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         **kwargs: Any,
     ) -> int: ...
 
@@ -65,8 +65,8 @@ class DryRunClient(Protocol):
         pose: list[float],
         *,
         duration: float = 0.0,
-        speed: float = 0.0,
-        accel: float = 1.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         **kwargs: Any,
     ) -> int: ...
 

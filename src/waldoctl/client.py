@@ -80,12 +80,15 @@ class RobotClient(ABC):
     ``wait`` — ``rel`` on ``move_c``, for instance, which declares none.
 
     **Planned-move timing:** ``move_j``, ``move_l``, ``move_c``, ``move_s``
-    and ``move_p`` take exactly one of *speed* — a fraction ``0 < speed <= 1``
-    of the backend's velocity limits — or *duration* in seconds. Passing
-    neither raises ``ValueError``: there is no default speed. *accel* is a
-    fraction of the acceleration limits. For the Cartesian moves *speed*
-    also caps the TCP's linear speed at ``speed`` times the backend's
-    planned-move linear maximum.
+    and ``move_p`` are timed by *duration* in seconds when it is greater
+    than 0, and *speed* is then not used; otherwise by *speed*, a fraction
+    ``0 < speed <= 1`` of the backend's velocity limits. For the Cartesian
+    moves *speed* also caps the TCP's linear speed at ``speed`` times the
+    backend's planned-move linear maximum. *accel* is a fraction
+    ``0 < accel <= 1`` of the acceleration limits. A negative, NaN or
+    infinite *duration*, a *speed* outside ``(0, 1]`` when it times the
+    move, or an *accel* outside ``(0, 1]`` raises ``ValueError`` before
+    anything is sent.
     """
 
     #: The backend this client drives, when the backend supplies it. Skills
@@ -135,9 +138,9 @@ class RobotClient(ABC):
         angles: list[float] | None = None,
         *,
         pose: list[float] | None = None,
-        duration: float | None = None,
-        speed: float | None = None,
-        accel: float = 1.0,
+        duration: float = 0.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         r: float = 0.0,
         rel: bool = False,
         wait: bool = False,
@@ -167,9 +170,9 @@ class RobotClient(ABC):
         pose: list[float],
         *,
         frame: Frame = "WRF",
-        duration: float | None = None,
-        speed: float | None = None,
-        accel: float = 1.0,
+        duration: float = 0.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         r: float = 0,
         rel: bool = False,
         wait: bool = False,
@@ -225,9 +228,9 @@ class RobotClient(ABC):
         end: list[float],
         *,
         frame: Frame = "WRF",
-        duration: float | None = None,
-        speed: float | None = None,
-        accel: float = 1.0,
+        duration: float = 0.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         r: float = 0,
         wait: bool = False,
         **wait_kwargs: Any,
@@ -263,9 +266,9 @@ class RobotClient(ABC):
         waypoints: list[list[float]],
         *,
         frame: Frame = "WRF",
-        duration: float | None = None,
-        speed: float | None = None,
-        accel: float = 1.0,
+        duration: float = 0.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         wait: bool = False,
         **wait_kwargs: Any,
     ) -> int:
@@ -294,9 +297,9 @@ class RobotClient(ABC):
         waypoints: list[list[float]],
         *,
         frame: Frame = "WRF",
-        duration: float | None = None,
-        speed: float | None = None,
-        accel: float = 1.0,
+        duration: float = 0.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
         wait: bool = False,
         **wait_kwargs: Any,
     ) -> int:
@@ -325,8 +328,8 @@ class RobotClient(ABC):
         angles: list[float],
         *,
         pose: list[float] | None = None,
-        speed: float = 1.0,
-        accel: float = 1.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
     ) -> int:
         """Streaming joint position target (fire-and-forget).
 
@@ -346,8 +349,8 @@ class RobotClient(ABC):
         self,
         pose: list[float],
         *,
-        speed: float = 1.0,
-        accel: float = 1.0,
+        speed: float = 0.5,
+        accel: float = 0.5,
     ) -> int:
         """Streaming linear Cartesian position target (fire-and-forget).
 
@@ -370,7 +373,7 @@ class RobotClient(ABC):
         *,
         joints: list[int] | None = None,
         speeds: list[float] | None = None,
-        accel: float = 1.0,
+        accel: float = 0.5,
     ) -> int:
         """Joint velocity jog. Single-joint or multi-joint.
 
@@ -395,7 +398,7 @@ class RobotClient(ABC):
         *,
         axes: list[Axis] | None = None,
         speeds_list: list[float] | None = None,
-        accel: float = 1.0,
+        accel: float = 0.5,
     ) -> int:
         """Cartesian velocity jog. Single-axis or multi-axis.
 
@@ -777,7 +780,7 @@ class RobotClient(ABC):
 
     @command(CommandKind.QUERY)
     async def joint_speeds(self) -> list[float] | None:
-        """Current joint velocities in rad/s (the units of
+        """Current joint velocities in deg/s (the units of
         ``StatusBuffer.speeds``).
 
         Category: Query
@@ -1155,13 +1158,12 @@ class RobotClient(ABC):
         *action*: action name understood by the tool (e.g. ``"calibrate"``, ``"move"``).
         *params*: optional positional parameters for the action.
 
-        Electric grippers take ``move [position, speed, current_ma]`` (exactly
-        three numbers; position and speed in ``[0, 1]``), ``calibrate``,
-        ``stop`` (halt in place, keep grip) and ``idle`` (release); ``move``
-        before a completed ``calibrate`` is refused. ``open``/``close``/
-        ``set_position`` are ``ElectricGripperTool`` methods that map onto
-        ``move``, filling what the caller leaves out: speed ``0.5``, current
-        ``ElectricGripperTool.default_current``.
+        Electric grippers take ``move [position, speed, current]`` (exactly
+        three fractions in ``[0, 1]``; current spans ``current_range``),
+        ``calibrate``, ``stop`` (halt in place, keep grip) and ``idle``
+        (release); ``move`` before a completed ``calibrate`` is refused.
+        ``open``/``close``/``set_position`` are ``ElectricGripperTool``
+        methods that map onto ``move``.
 
         Category: I/O
 

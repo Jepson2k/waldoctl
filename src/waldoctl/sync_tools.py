@@ -151,9 +151,29 @@ class SyncElectricGripperTool(SyncGripperTool):
     def current_range(self) -> tuple[int, int]:
         return self._async.current_range
 
-    @property
-    def default_current(self) -> int:
-        return self._async.default_current
+    def set_position(
+        self,
+        position: float,
+        *,
+        speed: float = 0.5,
+        current: float = 0.5,
+        **wait_kwargs: Any,
+    ) -> int:
+        return self._run(
+            self._async.set_position(
+                position, speed=speed, current=current, **wait_kwargs
+            )
+        )
+
+    def open(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
+        return self._run(self._async.open(speed=speed, current=current, **wait_kwargs))
+
+    def close(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
+        return self._run(self._async.close(speed=speed, current=current, **wait_kwargs))
 
     def stop(self, **kwargs: object) -> int:
         return self._run(self._async.stop(**kwargs))
