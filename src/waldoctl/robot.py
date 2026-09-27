@@ -140,12 +140,13 @@ class Robot(ABC):
 
     @property
     def motion_profiles(self) -> tuple[str, ...]:
-        """Available motion profile names.
+        """Motion profile names ``select_profile`` accepts — exactly that set,
+        so a caller can offer every entry and none is refused.
 
-        At least one profile is required.  The default is ``("linear",)``
-        which backends should override with their actual profiles.
+        Spelled as ``select_profile`` takes them. Backends override this
+        with the profiles they plan with.
         """
-        return ("linear",)
+        return ("LINEAR",)
 
     @property
     def cartesian_frames(self) -> tuple[str, ...]:

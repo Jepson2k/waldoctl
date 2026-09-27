@@ -32,7 +32,10 @@ def test_the_table_carries_what_each_wrapper_needs():
         assert (spec.move_type is not None) == (spec.kind is CommandKind.MOTION), (
             f"{name}: a preview renders motion by its move_type and nothing else"
         )
-        assert not spec.cancels or spec.kind is CommandKind.CONTROL
+        assert not spec.cancels or spec.kind in (
+            CommandKind.CONTROL,
+            CommandKind.SYSTEM,
+        )
     # The program-facing contract the ABC docstring states, as data.
     assert table["move_j"].move_type == "joints" and table["move_j"].mints_index
     assert table["move_l"].move_type == "cartesian"
@@ -43,8 +46,10 @@ def test_the_table_carries_what_each_wrapper_needs():
         assert table[streamed].move_type == "jog" and not table[streamed].mints_index, (
             f"{streamed} is fire-and-forget: nothing to wait_command on"
         )
-    assert table["stop"].cancels and table["estop"].cancels
-    assert table["select_tool"].kind is CommandKind.SYSTEM
+    for discards in ("stop", "estop", "teleport", "reset_state"):
+        assert table[discards].cancels, f"{discards} discards the queue"
+    for ordered in ("select_tool", "set_tcp_offset", "write_io", "tool_action"):
+        assert table[ordered].mints_index, f"{ordered} runs in queue order"
     assert table["wait_status"].kind is CommandKind.OBSERVATION
     assert table["io"].kind is CommandKind.OBSERVATION
 
@@ -75,7 +80,7 @@ def test_the_marker_refuses_contradictory_specs():
         command(CommandKind.QUEUED, move_type="joints")
     with pytest.raises(ValueError, match="move_type"):
         command(CommandKind.MOTION)
-    with pytest.raises(ValueError, match="CONTROL"):
-        command(CommandKind.SYSTEM, cancels=True)
+    with pytest.raises(ValueError, match="CONTROL or SYSTEM"):
+        command(CommandKind.QUERY, cancels=True)
     with pytest.raises(ValueError, match="index"):
         command(CommandKind.QUERY, mints_index=True)

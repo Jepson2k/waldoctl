@@ -17,7 +17,7 @@ from waldoctl.discovery import (
     load_robot_class,
     load_tool_spec_class,
 )
-from waldoctl.errors import RobotError
+from waldoctl.errors import MOTN_CANCELLED, MOTN_NOT_HOMED, RobotError
 from waldoctl.execution import ExecutionSpeed
 from waldoctl.dry_run import DryRunClient, is_dry_run
 from waldoctl.world import world_from_dict, world_to_dict
@@ -234,6 +234,8 @@ __all__ = [
     "StatusRate",
     "Inertia6",
     "PayloadEstimate",
+    "MOTN_CANCELLED",
+    "MOTN_NOT_HOMED",
     "RobotError",
     "PayloadResult",
     "PingResult",

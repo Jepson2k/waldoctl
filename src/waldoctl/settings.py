@@ -48,8 +48,9 @@ class GripperSettings(ChangeNotifierMixin):
     """Link gripper speed to jog speed."""
     speed: int = 50
     """Independent gripper speed when not synced, percent (0..100)."""
-    current: int = 500
-    """Gripper current limit (mA, electric grippers only)."""
+    current: int = 50
+    """Electric gripper grip current, percent (0..100) of the tool's
+    ``current_range``."""
     target_position: float = 0.0
     """User-set position target (0..1)."""
 

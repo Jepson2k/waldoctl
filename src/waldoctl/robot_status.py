@@ -193,9 +193,10 @@ class Joints(ChangeNotifierMixin):
 
     ``speeds``, ``torques``, ``torques_ext`` and ``can_jog_*`` are plain
     lists replaced wholesale on each status tick, so their bindings fire
-    correctly on reassignment. ``torques`` are measured joint torques
-    [Nm]; ``torques_ext`` is the external-torque estimate [Nm] (measured
-    minus the backend's dynamics model — a contact or unmodeled payload).
+    correctly on reassignment. ``speeds`` are joint velocities [deg/s];
+    ``torques`` are measured joint torques [Nm]; ``torques_ext`` is the
+    external-torque estimate [Nm] (measured minus the backend's dynamics
+    model — a contact or unmodeled payload).
     """
 
     angles: AngleArray = field(default_factory=AngleArray)
@@ -211,7 +212,8 @@ class IO(ChangeNotifierMixin):
     """Digital IO live state.
 
     ``estop = 1`` means the safety chain is OK (no e-stop pressed) — matches
-    the controller wire format.
+    the controller wire format. It reports the PHYSICAL safety chain only: a
+    software ``estop()`` latches the controller disabled but never sets it.
     """
 
     inputs: list[int] = field(default_factory=list)

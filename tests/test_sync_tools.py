@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from typing import Any
 
 from waldoctl.sync_tools import make_sync_tool
 from waldoctl.tools import ElectricGripperTool, GripperTool, ToolSpec, ToolStatus
@@ -41,7 +42,14 @@ class _BackendGripper(ElectricGripperTool):
     def adjust_step(self) -> int | None:
         return 7
 
-    async def set_position(self, position: float, **kwargs: float | int) -> int:
+    async def set_position(
+        self,
+        position: float,
+        *,
+        speed: float = 0.5,
+        current: float = 0.5,
+        **wait_kwargs: Any,
+    ) -> int:
         self.calls.append(f"set_position({position})")
         return 1
 
@@ -49,10 +57,14 @@ class _BackendGripper(ElectricGripperTool):
         self.calls.append("calibrate")
         return 2
 
-    async def open(self, **kwargs: float | int) -> int:
+    async def open(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
         return 3
 
-    async def close(self, **kwargs: float | int) -> int:
+    async def close(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
         return 4
 
     async def status(self) -> ToolStatus:

@@ -639,7 +639,8 @@ class ElectricGripperTool(GripperTool):
 
     Action methods and computed properties (``adjust_step``,
     ``channel_descriptors``) are abstract — backends provide concrete
-    implementations.
+    implementations. ``adjust_step`` is in percent points of
+    ``current_range``.
     """
 
     def __init__(
@@ -671,8 +672,57 @@ class ElectricGripperTool(GripperTool):
 
     @property
     def current_range(self) -> tuple[int, int]:
-        """(min, max) current range in mA."""
+        """(min, max) grip current in mA that a ``current`` fraction spans:
+        0 is min, 1 is max."""
         return self._current_range
+
+    @abstractmethod
+    async def set_position(
+        self,
+        position: float,
+        *,
+        speed: float = 0.5,
+        current: float = 0.5,
+        **wait_kwargs: Any,
+    ) -> int:
+        """Set gripper position. 0.0 = fully open, 1.0 = fully closed.
+
+        *speed* lies in ``speed_range``. *current* is the grip current as a
+        fraction in ``[0, 1]`` of ``current_range``; outside ``[0, 1]``, NaN
+        or infinite raises ``ValueError`` before anything is sent.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.set_position(0.5, current=0.3)
+        """
+        ...
+
+    @abstractmethod
+    async def open(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
+        """Open the gripper; *speed* and *current* as for ``set_position``.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.open()
+        """
+        ...
+
+    @abstractmethod
+    async def close(
+        self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
+    ) -> int:
+        """Close the gripper; *speed* and *current* as for ``set_position``.
+
+        Category: Tool
+
+        Example:
+            rbt.tool.close()
+        """
+        ...
 
     async def stop(self, **kwargs: object) -> int:
         """Halt the jaws where they are, ahead of anything still queued.
