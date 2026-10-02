@@ -64,12 +64,13 @@ class Panel(ABC):
     tab_tooltip: ClassVar[str | None] = None
     order: ClassVar[int] = 100
 
-    # Preferred tab-container size in CSS pixels: the pane opens at
+    # Preferred tab-container size in CSS pixels. A static pane opens at
     # default_width/default_height and never shrinks below
-    # min_width/min_height. Panels that leave these None size to their
-    # content. Sizing alone is static — set resizable for the host to add
-    # drag handles, letting the user resize the pane within the minima and
-    # persisting the chosen size.
+    # min_width/min_height; panels that leave these None size to their
+    # content. Set resizable for the host to add drag handles: the pane then
+    # opens at default_width and as tall as its content (capped at the
+    # viewport) until the user drags its height, and the size the user
+    # chooses persists within the minima.
     min_width: ClassVar[int | None] = None
     min_height: ClassVar[int | None] = None
     default_width: ClassVar[int | None] = None
