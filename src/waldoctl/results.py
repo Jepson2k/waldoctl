@@ -28,3 +28,18 @@ class IKResultData:
     q: NDArray[np.float64]
     success: bool
     violations: str | None = None
+
+
+@dataclass(frozen=True)
+class Clearance:
+    """Nearest points between the arm and one keep-out, in world metres.
+
+    ``distance`` is signed (negative = penetration depth). ``part`` and
+    ``obstacle`` use the reporting vocabulary of ``Robot.colliding_pairs``.
+    """
+
+    part: str
+    obstacle: str
+    distance: float
+    part_point: tuple[float, float, float]
+    obstacle_point: tuple[float, float, float]
