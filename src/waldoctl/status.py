@@ -95,6 +95,8 @@ class StatusBuffer(Protocol):
     the model does not know."""
     enabled: bool
     """Whether the controller accepts motion."""
+    motion_profile: str | None
+    """Active motion profile name; None when the backend does not report it."""
     warnings: list[tuple]
     """Self-clearing warning-class conditions as structured-error 6-tuples
     ``(command_index, code, title, cause, effect, remedy)`` — stale data,
