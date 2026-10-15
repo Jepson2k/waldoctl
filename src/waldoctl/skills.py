@@ -11,7 +11,7 @@ import asyncio
 import inspect
 import logging
 import re
-from collections.abc import Callable, Coroutine, Iterator
+from collections.abc import Callable, Coroutine, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -226,7 +226,7 @@ _observers: ContextVar[tuple[tuple[Callable[[SkillEvent], None], bool], ...]] = 
 @contextmanager
 def observe_skills(
     observer: Callable[[SkillEvent], None], *, capture_values: bool = False
-) -> Iterator[None]:
+) -> Generator[None]:
     """Observe invocations in this execution context, including nested skills.
 
     Callbacks run on the client's execution thread. UI consumers must marshal
