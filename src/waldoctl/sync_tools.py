@@ -19,7 +19,7 @@ holds by registering each wrapper class with them.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, overload
+from typing import Any, Callable, cast, overload
 
 from waldoctl.tools import (
     ElectricGripperTool,
@@ -127,29 +127,25 @@ class SyncGripperTool(SyncTool):
 class SyncPneumaticGripperTool(SyncGripperTool):
     """Sync view of a ``PneumaticGripperTool``."""
 
-    _async: PneumaticGripperTool
-
     @property
     def io_port(self) -> int:
-        return self._async.io_port
+        return cast(PneumaticGripperTool, self._async).io_port
 
 
 class SyncElectricGripperTool(SyncGripperTool):
     """Sync view of an ``ElectricGripperTool``."""
 
-    _async: ElectricGripperTool
-
     @property
     def position_range(self) -> tuple[float, float]:
-        return self._async.position_range
+        return cast(ElectricGripperTool, self._async).position_range
 
     @property
     def speed_range(self) -> tuple[float, float]:
-        return self._async.speed_range
+        return cast(ElectricGripperTool, self._async).speed_range
 
     @property
     def current_range(self) -> tuple[int, int]:
-        return self._async.current_range
+        return cast(ElectricGripperTool, self._async).current_range
 
     def set_position(
         self,
@@ -160,7 +156,7 @@ class SyncElectricGripperTool(SyncGripperTool):
         **wait_kwargs: Any,
     ) -> int:
         return self._run(
-            self._async.set_position(
+            cast(ElectricGripperTool, self._async).set_position(
                 position, speed=speed, current=current, **wait_kwargs
             )
         )
@@ -168,18 +164,26 @@ class SyncElectricGripperTool(SyncGripperTool):
     def open(
         self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
     ) -> int:
-        return self._run(self._async.open(speed=speed, current=current, **wait_kwargs))
+        return self._run(
+            cast(ElectricGripperTool, self._async).open(
+                speed=speed, current=current, **wait_kwargs
+            )
+        )
 
     def close(
         self, *, speed: float = 0.5, current: float = 0.5, **wait_kwargs: Any
     ) -> int:
-        return self._run(self._async.close(speed=speed, current=current, **wait_kwargs))
+        return self._run(
+            cast(ElectricGripperTool, self._async).close(
+                speed=speed, current=current, **wait_kwargs
+            )
+        )
 
     def stop(self, **kwargs: object) -> int:
-        return self._run(self._async.stop(**kwargs))
+        return self._run(cast(ElectricGripperTool, self._async).stop(**kwargs))
 
     def release(self, **kwargs: object) -> int:
-        return self._run(self._async.release(**kwargs))
+        return self._run(cast(ElectricGripperTool, self._async).release(**kwargs))
 
 
 # Most specific typed wrapper for each async ABC, checked in this order.
