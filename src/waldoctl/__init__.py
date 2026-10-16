@@ -74,7 +74,7 @@ from waldoctl.programs import (
     Recording,
     parse_unified_diff,
 )
-from waldoctl.results import IKResult, IKResultData
+from waldoctl.results import Clearance, IKResult, IKResultData
 from waldoctl.ticks import (
     ObjectTicks,
     TickBlock,
@@ -224,6 +224,7 @@ __all__ = [
     # Results (Protocols + dataclasses)
     "IKResult",
     "IKResultData",
+    "Clearance",
     "ObjectTicks",
     "TickBlock",
     "TickIndex",

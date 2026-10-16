@@ -13,7 +13,7 @@ from waldoctl.client import RobotClient
 from waldoctl.discovery import iter_plugin_tool_specs
 from waldoctl.dry_run import DryRunClient
 from waldoctl.joints import CartesianKinodynamicLimits, JointsSpec
-from waldoctl.results import IKResult
+from waldoctl.results import Clearance, IKResult
 from waldoctl.shapes import Shape
 from waldoctl.tools import ComposedToolsSpec, ToolsSpec
 
@@ -275,6 +275,14 @@ class Robot(ABC):
     def min_distance(self, q_rad: NDArray[np.float64]) -> float:
         """Min clearance at ``q_rad`` (signed; negative = penetration)."""
         return float("inf")
+
+    def clearances(self, q_rad: NDArray[np.float64]) -> list[Clearance]:
+        """Nearest arm or tool point to each keep-out at ``q_rad``, closest first.
+
+        One entry per keep-out (``shape:`` / ``install:`` names); empty when
+        there are none or collision checking is disabled.
+        """
+        return []
 
     def apply_shapes(self, shapes: list[Shape]) -> None:
         """Apply shapes to this process's in-process collision world, for
