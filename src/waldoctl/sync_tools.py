@@ -19,7 +19,7 @@ holds by registering each wrapper class with them.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, overload
+from typing import Any, Callable, Generic, TypeVar, overload
 
 from waldoctl.tools import (
     ElectricGripperTool,
@@ -32,8 +32,11 @@ from waldoctl.tools import (
 
 _RUNNER_FIELDS = frozenset({"_async", "_run"})
 
+_Tool = TypeVar("_Tool", bound=ToolSpec)
+_Gripper = TypeVar("_Gripper", bound=GripperTool)
 
-class SyncTool:
+
+class SyncTool(Generic[_Tool]):
     """The async tool behind ``run``.
 
     Attribute access forwards to the wrapped tool. A coroutine method is
@@ -42,7 +45,7 @@ class SyncTool:
     async tool's own, so a backend's overrides are what the caller sees.
     """
 
-    def __init__(self, async_tool: ToolSpec, run: Callable[[Any], Any]) -> None:
+    def __init__(self, async_tool: _Tool, run: Callable[[Any], Any]) -> None:
         self._async = async_tool
         self._run = run
 
@@ -102,10 +105,8 @@ class SyncTool:
         return self._async.tcp_rpy
 
 
-class SyncGripperTool(SyncTool):
+class SyncGripperTool(SyncTool[_Gripper]):
     """Sync view of any ``GripperTool``."""
-
-    _async: GripperTool
 
     @property
     def gripper_type(self) -> GripperType:
@@ -124,20 +125,16 @@ class SyncGripperTool(SyncTool):
         return self._run(self._async.calibrate(**kwargs))
 
 
-class SyncPneumaticGripperTool(SyncGripperTool):
+class SyncPneumaticGripperTool(SyncGripperTool[PneumaticGripperTool]):
     """Sync view of a ``PneumaticGripperTool``."""
-
-    _async: PneumaticGripperTool
 
     @property
     def io_port(self) -> int:
         return self._async.io_port
 
 
-class SyncElectricGripperTool(SyncGripperTool):
+class SyncElectricGripperTool(SyncGripperTool[ElectricGripperTool]):
     """Sync view of an ``ElectricGripperTool``."""
-
-    _async: ElectricGripperTool
 
     @property
     def position_range(self) -> tuple[float, float]:
@@ -223,9 +220,11 @@ def make_sync_tool(
 @overload
 def make_sync_tool(
     async_tool: GripperTool, run: Callable[[Any], Any]
-) -> SyncGripperTool: ...
+) -> SyncGripperTool[GripperTool]: ...
 @overload
-def make_sync_tool(async_tool: ToolSpec, run: Callable[[Any], Any]) -> SyncTool: ...
+def make_sync_tool(
+    async_tool: ToolSpec, run: Callable[[Any], Any]
+) -> SyncTool[ToolSpec]: ...
 def make_sync_tool(async_tool: ToolSpec, run: Callable[[Any], Any]) -> SyncTool:
     """Wrap an async-bound tool for synchronous use.
 
