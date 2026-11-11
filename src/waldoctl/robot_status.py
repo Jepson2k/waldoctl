@@ -141,6 +141,11 @@ class ActionLogEntry:
 
 
 @binding.bindable_dataclass
+class BindableToolStatus(ToolStatus):
+    """``commander.status.tool``: a ToolStatus whose fields fire bindings."""
+
+
+@binding.bindable_dataclass
 class FrameJogAvailability(ChangeNotifierMixin):
     """Per-frame jog availability for X / Y / Z / Rx / Ry / Rz."""
 
@@ -396,7 +401,7 @@ class RobotStatus(ChangeNotifierMixin):
     pose: Pose = field(default_factory=Pose)
     joints: Joints = field(default_factory=Joints)
     io: IO = field(default_factory=IO)
-    tool: ToolStatus = field(default_factory=ToolStatus)
+    tool: ToolStatus = field(default_factory=BindableToolStatus)
     action: Action = field(default_factory=Action)
     collision: CollisionStatus = field(default_factory=CollisionStatus)
     controller: Controller = field(default_factory=Controller)

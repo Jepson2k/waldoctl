@@ -1,8 +1,9 @@
 # waldoctl — Shared interface definitions for robot arm control
 
+from __future__ import annotations
+
 from importlib.metadata import version as _get_version
 
-from waldoctl._commander import Commander
 from waldoctl.client import RobotClient
 from waldoctl.commands import CommandKind, CommandSpec, command, command_table
 from waldoctl.discovery import (
@@ -21,16 +22,6 @@ from waldoctl.errors import MOTN_CANCELLED, MOTN_NOT_HOMED, RobotError
 from waldoctl.execution import ExecutionSpeed
 from waldoctl.dry_run import DryRunClient, is_dry_run
 from waldoctl.world import world_from_dict, world_to_dict
-from waldoctl.dry_run_state import (
-    DryRun,
-    CommandNote,
-    PathSegment,
-    Playback,
-    ProgramTarget,
-    ToolAction,
-    ShapeChange,
-    ToolSelection,
-)
 from waldoctl.panels import Panel, PanelSlot
 from waldoctl.scene import SceneHandle
 from waldoctl.shapes import (
@@ -60,20 +51,6 @@ from waldoctl.joints import (
     LinearAngularLimits,
     PositionLimits,
 )
-from waldoctl.programs import (
-    DiffHunk,
-    EditFlow,
-    EditId,
-    Execution,
-    LogEntry,
-    PendingEdit,
-    Program,
-    ProgramLog,
-    ProgramTabs,
-    RecordedProgram,
-    Recording,
-    parse_unified_diff,
-)
 from waldoctl.results import Clearance, IKResult, IKResultData
 from waldoctl.ticks import (
     ObjectTicks,
@@ -84,35 +61,6 @@ from waldoctl.ticks import (
 )
 from waldoctl.robot import Robot
 from waldoctl.notify import ChangeNotifierMixin
-from waldoctl.robot_status import (
-    IO,
-    Action,
-    ActionLogEntry,
-    ActionStatus,
-    AngleArray,
-    CartesianJogAvailability,
-    CollisionStatus,
-    Controller,
-    DriveHealth,
-    FrameJogAvailability,
-    Homing,
-    Joints,
-    LinkHealth,
-    LoopHealth,
-    Pose,
-    RobotStatus,
-    ToolTimeSeries,
-    Warnings,
-)
-from waldoctl.settings import (
-    EnvelopeMode,
-    GripperSettings,
-    JogSettings,
-    McpSettings,
-    PluginConfig,
-    Settings,
-    ViewSettings,
-)
 from waldoctl.status import (
     ActionState,
     ActivityResult,
@@ -178,8 +126,64 @@ def _clear_commander() -> None:
     _commander_instance = None
 
 
+_LAZY = {
+    "Action": "waldoctl.robot_status",
+    "ActionLogEntry": "waldoctl.robot_status",
+    "ActionStatus": "waldoctl.robot_status",
+    "AngleArray": "waldoctl.robot_status",
+    "CartesianJogAvailability": "waldoctl.robot_status",
+    "CollisionStatus": "waldoctl.robot_status",
+    "CommandNote": "waldoctl.dry_run_state",
+    "Commander": "waldoctl._commander",
+    "Controller": "waldoctl.robot_status",
+    "DiffHunk": "waldoctl.programs",
+    "DriveHealth": "waldoctl.robot_status",
+    "DryRun": "waldoctl.dry_run_state",
+    "EditFlow": "waldoctl.programs",
+    "EditId": "waldoctl.programs",
+    "EnvelopeMode": "waldoctl.settings",
+    "Execution": "waldoctl.programs",
+    "FrameJogAvailability": "waldoctl.robot_status",
+    "GripperSettings": "waldoctl.settings",
+    "Homing": "waldoctl.robot_status",
+    "IO": "waldoctl.robot_status",
+    "JogSettings": "waldoctl.settings",
+    "Joints": "waldoctl.robot_status",
+    "LinkHealth": "waldoctl.robot_status",
+    "LogEntry": "waldoctl.programs",
+    "LoopHealth": "waldoctl.robot_status",
+    "McpSettings": "waldoctl.settings",
+    "PathSegment": "waldoctl.dry_run_state",
+    "PendingEdit": "waldoctl.programs",
+    "Playback": "waldoctl.dry_run_state",
+    "PluginConfig": "waldoctl.settings",
+    "Pose": "waldoctl.robot_status",
+    "Program": "waldoctl.programs",
+    "ProgramLog": "waldoctl.programs",
+    "ProgramTabs": "waldoctl.programs",
+    "ProgramTarget": "waldoctl.dry_run_state",
+    "RecordedProgram": "waldoctl.programs",
+    "Recording": "waldoctl.programs",
+    "RobotStatus": "waldoctl.robot_status",
+    "Settings": "waldoctl.settings",
+    "ShapeChange": "waldoctl.dry_run_state",
+    "ToolAction": "waldoctl.dry_run_state",
+    "ToolSelection": "waldoctl.dry_run_state",
+    "ToolTimeSeries": "waldoctl.robot_status",
+    "ViewSettings": "waldoctl.settings",
+    "Warnings": "waldoctl.robot_status",
+    "parse_unified_diff": "waldoctl.programs",
+}
+
+
 def __getattr__(name: str):
     """Resolve ``waldoctl.commander`` lazily; raise clearly when unset."""
+    if name in _LAZY:
+        import importlib
+
+        value = getattr(importlib.import_module(_LAZY[name]), name)
+        globals()[name] = value
+        return value
     if name == "commander":
         if _commander_instance is None:
             raise RuntimeError(
@@ -198,6 +202,61 @@ def __getattr__(name: str):
 from typing import TYPE_CHECKING  # noqa: E402
 
 if TYPE_CHECKING:
+    from waldoctl._commander import Commander
+    from waldoctl.dry_run_state import (
+        DryRun,
+        CommandNote,
+        PathSegment,
+        Playback,
+        ProgramTarget,
+        ToolAction,
+        ShapeChange,
+        ToolSelection,
+    )
+    from waldoctl.programs import (
+        DiffHunk,
+        EditFlow,
+        EditId,
+        Execution,
+        LogEntry,
+        PendingEdit,
+        Program,
+        ProgramLog,
+        ProgramTabs,
+        RecordedProgram,
+        Recording,
+        parse_unified_diff,
+    )
+    from waldoctl.robot_status import (
+        IO,
+        Action,
+        ActionLogEntry,
+        ActionStatus,
+        AngleArray,
+        CartesianJogAvailability,
+        CollisionStatus,
+        Controller,
+        DriveHealth,
+        FrameJogAvailability,
+        Homing,
+        Joints,
+        LinkHealth,
+        LoopHealth,
+        Pose,
+        RobotStatus,
+        ToolTimeSeries,
+        Warnings,
+    )
+    from waldoctl.settings import (
+        EnvelopeMode,
+        GripperSettings,
+        JogSettings,
+        McpSettings,
+        PluginConfig,
+        Settings,
+        ViewSettings,
+    )
+
     commander: Commander
 
 
