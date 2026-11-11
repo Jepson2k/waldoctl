@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum, StrEnum
 from typing import Any, Union
 
-from nicegui import binding
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +189,7 @@ class ChannelDescriptor:
 # ---------------------------------------------------------------------------
 
 
-@binding.bindable_dataclass
+@dataclass
 class ToolStatus:
     """Universal end-of-arm tool status — the bindable surface exposed at
     ``commander.status.tool``.
@@ -279,7 +278,7 @@ class CameraSpec:
 # ---------------------------------------------------------------------------
 
 
-@binding.bindable_dataclass
+@dataclass
 class ToolRuntimeSettings:
     """User-tweakable overrides applied on top of a tool's immutable spec.
 
